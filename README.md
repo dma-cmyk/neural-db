@@ -2,6 +2,8 @@
 
 **NEURAL_DB** は、Gemini AI を活用したセマンティック・ノートアプリです。テキストメモだけでなく、PDFや画像などのファイルをAIが要約し、その「意味」で検索することができます。
 
+[🚀 Live Demo](https://dma-cmyk.github.io/neural-db/)
+
 ![Main UI](https://raw.githubusercontent.com/antigravity-ai/assets/main/neural_db_mockup.png) *(※プレースホルダー画像)*
 
 ## ✨ 主な機能
