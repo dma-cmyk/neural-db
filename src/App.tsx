@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Search, Plus, Loader2, Trash2, X, BrainCircuit, Info, Key, Download, Upload, Edit2, Terminal } from 'lucide-react';
+import { Search, Plus, Loader2, Trash2, X, BrainCircuit, Info, Key, Download, Upload, Edit2, Terminal, Maximize2, Minimize2 } from 'lucide-react';
 import { calculateCosineSimilarity } from './lib/utils';
 import { getEmbedding, summarizeFile, generateTitle } from './lib/gemini';
 import { NoteContent } from './components/NoteContent';
@@ -62,6 +62,7 @@ export default function App() {
   // UI状態
   const [isInputExpanded, setIsInputExpanded] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [isFocusMode, setIsFocusMode] = useState(false);
   
   const inputRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -190,6 +191,11 @@ export default function App() {
     setPendingFile(null);
     setEditingNoteId(null);
     setIsInputExpanded(false);
+    setIsFocusMode(false);
+  };
+
+  const handleToggleFocus = () => {
+    setIsFocusMode(prev => !prev);
   };
 
   const handleEditNote = (note: Note) => {
@@ -502,9 +508,18 @@ export default function App() {
         >
           {isInputExpanded ? (
             <div className="flex flex-col animate-in fade-in duration-200">
-              <div className="bg-zinc-950 border-b border-cyan-900/50 px-4 py-1.5 flex items-center gap-2">
-                <div className="w-2 h-2 bg-fuchsia-500 animate-pulse"></div>
-                <span className="text-[0.65rem] text-cyan-600 tracking-widest">入力ターミナル稼働中</span>
+              <div className="bg-zinc-950 border-b border-cyan-900/50 px-4 py-1.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-fuchsia-500 animate-pulse"></div>
+                  <span className="text-[0.65rem] text-cyan-600 tracking-widest">入力ターミナル稼働中</span>
+                </div>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); handleToggleFocus(); }}
+                  className="p-1 text-cyan-700 hover:text-cyan-400 transition-colors"
+                  title="全画面表示"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </button>
               </div>
               <input
                 type="text"
@@ -515,7 +530,7 @@ export default function App() {
               />
               <textarea
                 autoFocus={!editingNoteId}
-                className="w-full px-4 pb-4 bg-transparent resize-none outline-none min-h-[120px] text-cyan-50 placeholder-cyan-800/70"
+                className="w-full px-4 pb-4 bg-transparent resize-none outline-none min-h-[120px] max-h-[500px] overflow-y-auto text-cyan-50 placeholder-cyan-800/70 custom-scrollbar"
                 placeholder="データ内容を入力..."
                 value={newNoteText}
                 onChange={(e) => setNewNoteText(e.target.value)}
@@ -653,6 +668,13 @@ export default function App() {
                       
                       <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
+                          onClick={() => { handleEditNote(note); handleToggleFocus(); }}
+                          className="p-1.5 text-fuchsia-600 hover:text-fuchsia-400 hover:bg-fuchsia-950/40 transition-all outline-none"
+                          title="全画面で表示・編集"
+                        >
+                          <Maximize2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
                           onClick={() => handleEditNote(note)}
                           className="p-1.5 text-cyan-600 hover:text-cyan-300 hover:bg-cyan-900/40 transition-all outline-none"
                           title="編集"
@@ -675,6 +697,99 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* ーーー 集中モード (Focus Mode) モーダル ーーー */}
+      {isFocusMode && (
+        <div className="fixed inset-0 z-[60] bg-zinc-950 flex flex-col animate-in fade-in zoom-in-95 duration-200">
+          <header className="px-6 py-4 border-b border-cyan-500/30 flex items-center justify-between bg-zinc-900/50 backdrop-blur-md">
+            <div className="flex items-center gap-4">
+              <BrainCircuit className="w-6 h-6 text-fuchsia-500" />
+              <div className="flex flex-col">
+                <span className="text-[0.6rem] text-cyan-600 tracking-[0.3em] font-bold uppercase">Focus Mode Active</span>
+                <span className="text-xs text-fuchsia-400 font-mono italic">
+                  {isProcessingFile ? 'System: Analyzing file...' : 
+                   isGeneratingTitle ? 'System: Generating title...' : 'System: Waiting for input...'}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={handleToggleFocus}
+                className="p-2 text-cyan-600 hover:text-cyan-400 transition-all border border-cyan-900/50 hover:border-cyan-500"
+                title="縮小"
+              >
+                <Minimize2 className="w-5 h-5" />
+              </button>
+              <button 
+                onClick={handleCloseInput}
+                className="p-2 text-red-600 hover:text-red-400 transition-all border border-red-900/50 hover:border-red-500"
+                title="閉じる"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </header>
+
+          <div className="flex-1 flex flex-col max-w-5xl mx-auto w-full p-6 md:p-12 overflow-hidden">
+            <input
+              type="text"
+              className="w-full bg-transparent border-none outline-none text-3xl md:text-5xl font-bold tracking-tight text-cyan-50 placeholder-cyan-900 mb-8"
+              placeholder="タイトルを思考中..."
+              value={newNoteTitle}
+              onChange={(e) => setNewNoteTitle(e.target.value)}
+            />
+            
+            <div className="flex-1 relative border-l border-cyan-500/20 pl-6 ml-1">
+              <textarea
+                autoFocus
+                className="w-full h-full bg-transparent resize-none outline-none text-lg leading-relaxed text-cyan-100 placeholder-zinc-800 font-mono custom-scrollbar"
+                placeholder="ここに壮大な思考を記録してください..."
+                value={newNoteText}
+                onChange={(e) => setNewNoteText(e.target.value)}
+              />
+            </div>
+
+            {pendingFile && (
+              <div className="mt-8 p-4 bg-zinc-900/80 border border-fuchsia-500/30 flex items-center gap-4">
+                <FileIcon className="w-6 h-6 text-fuchsia-500" />
+                <div className="flex-1 overflow-hidden">
+                  <p className="text-xs text-fuchsia-300 font-bold truncate">{pendingFile.name}</p>
+                  <p className="text-[0.6rem] text-zinc-500 uppercase tracking-widest">{pendingFile.type}</p>
+                </div>
+                <button onClick={() => setPendingFile(null)} className="p-2 text-zinc-500 hover:text-red-400">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <footer className="p-6 border-t border-cyan-900/50 bg-zinc-900/30 flex items-center justify-between">
+            <div className="flex items-center gap-6 text-[0.65rem] text-cyan-800 tracking-widest font-bold">
+               <div className="flex items-center gap-2">
+                 <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse"></div>
+                 NEURALLINK_ESTABLISHED
+               </div>
+               <div className="hidden sm:block">CHARS: {newNoteText.length}</div>
+            </div>
+            
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 px-6 py-3 bg-zinc-950 text-cyan-600 hover:text-cyan-300 transition-all border border-cyan-900 cursor-pointer text-xs font-bold tracking-widest uppercase">
+                <Paperclip className="w-4 h-4" />
+                <span>Attach</span>
+                <input type="file" className="hidden" onChange={handleFileUpload} />
+              </label>
+              
+              <button 
+                onClick={handleSaveNote}
+                disabled={isAdding || (!newNoteText.trim() && !pendingFile)}
+                className="px-10 py-3 bg-cyan-950/50 text-cyan-300 border border-cyan-400 hover:bg-cyan-900 hover:shadow-[0_0_25px_rgba(6,182,212,0.3)] disabled:opacity-30 transition-all text-xs font-bold tracking-[0.2em] uppercase flex items-center gap-3"
+              >
+                {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Execute_Save'}
+              </button>
+            </div>
+          </footer>
+        </div>
+      )}
     </div>
   );
 }

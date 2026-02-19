@@ -16,7 +16,7 @@ export const NoteContent: React.FC<NoteContentProps> = ({ text }) => {
           <span className="text-cyan-800 w-8 flex-shrink-0 text-right pr-3 select-none text-[0.65rem] pt-[0.25rem] opacity-50 group-hover/line:opacity-100 group-hover/line:text-cyan-400 transition-colors">
             {String(index + 1).padStart(2, '0')}
           </span>
-          <span className="whitespace-pre-wrap break-words flex-1 text-cyan-50">
+          <span className="whitespace-pre-wrap break-words break-all flex-1 text-cyan-50">
             {line === '' ? '\u00A0' : line}
           </span>
         </div>
