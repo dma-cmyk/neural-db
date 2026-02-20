@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { ExternalLink } from 'lucide-react';
 
 interface NoteContentProps {
   text: string;
@@ -34,7 +35,15 @@ export const NoteContent: React.FC<NoteContentProps> = ({ text }) => {
         components={{
           // カスタムコンポーネントでリンクを制御
           a: ({ ...props }) => (
-            <a {...props} target="_blank" rel="noopener noreferrer" className="text-fuchsia-400 hover:text-fuchsia-300 underline underline-offset-2 decoration-fuchsia-500/30 transition-colors" />
+            <a 
+              {...props} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="inline-flex items-center gap-1 text-fuchsia-400 hover:text-fuchsia-300 underline underline-offset-4 decoration-fuchsia-500/30 transition-all group/link"
+            >
+              <span>{props.children}</span>
+              <ExternalLink className="w-2.5 h-2.5 opacity-40 group-hover/link:opacity-100 transition-opacity" />
+            </a>
           ),
           // コードブロックの装飾
           pre: ({ ...props }) => (

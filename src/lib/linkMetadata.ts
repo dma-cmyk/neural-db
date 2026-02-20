@@ -15,9 +15,16 @@ const CORS_PROXY = 'https://api.allorigins.win/get?url=';
  * テキストからURLを抽出します
  */
 export const extractUrls = (text: string): string[] => {
+  // markdownの [text](url) 形式からURLを抽出、または生のURLを抽出
+  // 末尾の閉じカッコやカンマを巻き込まないように調整
   const urlRegex = /https?:\/\/[^\s$.?#].[^\s]*/g;
   const matches = text.match(urlRegex);
-  return matches ? Array.from(new Set(matches)) : [];
+  if (!matches) return [];
+
+  return Array.from(new Set(matches.map(url => {
+    // 末尾の記号（ markdownの ) や末尾の . , ! ? など）を削除
+    return url.replace(/[),.!?;:>]+$/, '');
+  })));
 };
 
 /**
