@@ -51,8 +51,8 @@ export const TagCloud: React.FC<TagCloudProps> = ({ tags, selectedTags, onToggle
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 bg-cyan-500 animate-pulse"></div>
                 <div className="flex flex-col">
-                  <span className="text-[0.6rem] text-cyan-600 font-bold tracking-[0.3em] uppercase">System_Tag_Repository</span>
-                  <span className="text-xs text-cyan-400 font-mono tracking-tighter">DATA_VISUALIZATION_V2.0.4</span>
+                  <span className="text-[0.6rem] text-cyan-600 font-bold tracking-[0.3em] uppercase">システム・タグ・リポジトリ</span>
+                  <span className="text-xs text-cyan-400 font-mono tracking-tighter">データ可視化プロトコル V2.0.4</span>
                 </div>
               </div>
               <button 
@@ -66,7 +66,7 @@ export const TagCloud: React.FC<TagCloudProps> = ({ tags, selectedTags, onToggle
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-4 min-h-[100px]">
               {tags.length === 0 ? (
                 <span className="text-cyan-900 font-mono text-sm animate-pulse tracking-widest">
-                  {"[ NO_TAG_DATA_FOUND ]"}
+                  {"[ タグデータが検出されません ]"}
                 </span>
               ) : (
                 tags.map((tag) => {
@@ -111,12 +111,12 @@ export const TagCloud: React.FC<TagCloudProps> = ({ tags, selectedTags, onToggle
                     className="text-[0.65rem] font-mono text-fuchsia-500 hover:text-fuchsia-300 transition-colors flex items-center gap-1 group/clear"
                   >
                     <span className="opacity-0 group-hover/clear:opacity-100 transition-opacity">{">"}</span>
-                    RESET_FILTERS_({selectedTags.length})
+                    フィルタ解除 ({selectedTags.length})
                   </button>
                 )}
               </div>
               <span className="text-[0.55rem] text-cyan-900 font-mono italic">
-                SCANNING_ALL_MEMO_CLUSTERS... OK
+                全メモクラスターをスキャン中... 完了
               </span>
             </div>
           </div>

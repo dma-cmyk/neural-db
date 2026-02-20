@@ -58,7 +58,7 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
           Neural_Link
         </h2>
         <p className="text-[0.6rem] text-cyan-700 tracking-widest mt-2 uppercase">
-          Authorization_Required
+          認証プロトコル起動中
         </p>
       </div>
 
@@ -73,8 +73,8 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
           <div className="flex items-center gap-4 z-10">
             <Plus className="w-5 h-5 text-fuchsia-500" />
             <div className="text-left">
-              <div className="text-[0.7rem] font-bold text-cyan-100 uppercase tracking-widest">INITIALIZE_NEW_LINK</div>
-              <div className="text-[0.55rem] text-zinc-600">Register new identity / vault</div>
+              <div className="text-[0.7rem] font-bold text-cyan-100 uppercase tracking-widest">新規リンク初期化</div>
+              <div className="text-[0.55rem] text-zinc-600">新しい識別子 / Vaultを作成</div>
             </div>
           </div>
           <Zap className="w-4 h-4 text-cyan-900 group-hover:text-fuchsia-400 transition-colors" />
@@ -87,8 +87,8 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
           <div className="flex items-center gap-4 z-10">
             <Key className="w-5 h-5 text-cyan-500" />
             <div className="text-left">
-              <div className="text-[0.7rem] font-bold text-cyan-100 uppercase tracking-widest">ACCESS_EXISTING_LINK</div>
-              <div className="text-[0.55rem] text-zinc-600">Login to your neural partition</div>
+              <div className="text-[0.7rem] font-bold text-cyan-100 uppercase tracking-widest">既存リンクへアクセス</div>
+              <div className="text-[0.55rem] text-zinc-600">あなたの隔離領域へログイン</div>
             </div>
           </div>
           <Zap className="w-4 h-4 text-cyan-900 group-hover:text-cyan-400 transition-colors" />
@@ -101,11 +101,11 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
       <div className="flex items-center gap-4 mb-4 cursor-pointer hover:text-cyan-300 transition-colors text-cyan-700" onClick={() => setMode('auth_selection')}>
         <ChevronLeft className="w-4 h-4" />
-        <span className="text-[0.6rem] font-bold tracking-widest uppercase">Go_Back</span>
+        <span className="text-[0.6rem] font-bold tracking-widest uppercase">戻る</span>
       </div>
       
       <div className="text-center mb-6">
-        <h3 className="text-xs font-mono text-cyan-100 tracking-widest uppercase">Recent_Sessions</h3>
+        <h3 className="text-xs font-mono text-cyan-100 tracking-widest uppercase">最近のセッション</h3>
       </div>
 
       <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
@@ -135,12 +135,12 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
       <div className="flex items-center gap-4 mb-2 cursor-pointer hover:text-cyan-300 transition-colors text-cyan-700" onClick={() => setMode('home')}>
         <ChevronLeft className="w-4 h-4" />
-        <span className="text-[0.6rem] font-bold tracking-widest uppercase">Go_Back</span>
+        <span className="text-[0.6rem] font-bold tracking-widest uppercase">戻る</span>
       </div>
 
       <div className="text-center mb-8">
         <h2 className="text-lg font-mono text-cyan-100 tracking-[0.1em] font-bold uppercase">Authorization</h2>
-        <p className="text-[0.55rem] text-cyan-700 tracking-widest mt-1 uppercase">Select_Method</p>
+        <p className="text-[0.55rem] text-cyan-700 tracking-widest mt-1 uppercase">認証方法を選択</p>
       </div>
 
       <div className="grid grid-cols-1 gap-3">
@@ -151,8 +151,8 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
           <div className="flex items-center gap-4 z-10">
             <Fingerprint className="w-5 h-5 text-cyan-500 group-hover:text-cyan-300" />
             <div className="text-left">
-              <div className="text-[0.7rem] font-bold text-cyan-100 uppercase tracking-tighter">Biometric_Scan</div>
-              <div className="text-[0.55rem] text-cyan-700">Login with Fingerprint / FaceID</div>
+              <div className="text-[0.7rem] font-bold text-cyan-100 uppercase tracking-tighter">生体認証スキャン</div>
+              <div className="text-[0.55rem] text-cyan-700">指紋 / 顔認証でログイン</div>
             </div>
           </div>
           <Zap className="w-4 h-4 text-cyan-900 group-hover:text-cyan-400 transition-colors" />
@@ -168,8 +168,8 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
           <div className="flex items-center gap-4 z-10">
             <Key className="w-5 h-5 text-cyan-500 group-hover:text-cyan-300" />
             <div className="text-left">
-              <div className="text-[0.7rem] font-bold text-cyan-100 uppercase tracking-tighter">Seed_Phrase</div>
-              <div className="text-[0.55rem] text-cyan-700">12_WORD_RECOVERY_KEY</div>
+              <div className="text-[0.7rem] font-bold text-cyan-100 uppercase tracking-tighter">シードフレーズ</div>
+              <div className="text-[0.55rem] text-cyan-700">12単語のリカバリーキー</div>
             </div>
           </div>
           <Zap className="w-4 h-4 text-cyan-900 group-hover:text-cyan-400 transition-colors" />
@@ -180,7 +180,7 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
             onClick={() => setMode('profile_list')}
             className="w-full mt-4 py-2 text-[0.6rem] text-zinc-600 hover:text-cyan-500 transition-colors uppercase tracking-[0.2em] flex items-center justify-center gap-2"
           >
-            <Camera className="w-3 h-3" /> Show_Recent_Identities
+            <Camera className="w-3 h-3" /> 最近のIDを表示
           </button>
         )}
       </div>
@@ -192,13 +192,13 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
       <div className="flex items-center gap-4 mb-6 cursor-pointer hover:text-cyan-300 transition-colors text-cyan-700" 
            onClick={() => setMode(isRegistering ? 'home' : 'auth_selection')}>
         <ChevronLeft className="w-4 h-4" />
-        <span className="text-[0.6rem] font-bold tracking-widest uppercase">Go_Back</span>
+        <span className="text-[0.6rem] font-bold tracking-widest uppercase">戻る</span>
       </div>
 
       {isInitialSetup || isRegistering ? (
         <div className="space-y-6">
           <div className="bg-cyan-950/20 border border-cyan-500/30 p-4 rounded-sm">
-            <p className="text-[0.65rem] text-cyan-400 font-bold mb-4 uppercase tracking-[0.2em]">Generate_New_Seed_Phrase</p>
+            <p className="text-[0.65rem] text-cyan-400 font-bold mb-4 uppercase tracking-[0.2em]">新規シードフレーズ生成</p>
             <div className="grid grid-cols-3 gap-2">
               {generatedMnemonic.split(' ').map((word: string, i: number) => (
                 <div key={i} className="bg-zinc-900/80 border border-cyan-900/50 p-2 text-center text-[0.7rem] font-mono text-cyan-100 relative group">
@@ -215,7 +215,7 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
                 }}
                 className="w-full py-2 bg-zinc-900 border border-cyan-700 text-cyan-400 text-[0.6rem] font-bold tracking-widest hover:bg-cyan-500/10 flex items-center justify-center gap-2"
               >
-                <Clipboard className="w-3 h-3" /> COPY_TO_NEURAL_LINK
+                <Clipboard className="w-3 h-3" /> クリップボードへコピー
               </button>
             </div>
           </div>
@@ -236,13 +236,13 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
             onClick={handleSetupComplete}
             className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-cyan-950 text-xs font-black tracking-[0.3em] transition-all uppercase shadow-[0_4px_20px_rgba(6,182,212,0.3)]"
           >
-            I_HAVE_SECURED_MY_PHRASE
+            フレーズを安全に保存しました
           </button>
         </div>
       ) : (
         <form onSubmit={handleMnemonicSubmit} className="space-y-6">
           <div className="space-y-2">
-            <label className="text-[0.6rem] text-cyan-700 uppercase font-bold tracking-widest">Input_Recovery_Words (12_Words)</label>
+            <label className="text-[0.6rem] text-cyan-700 uppercase font-bold tracking-widest">リカバリー単語を入力 (12単語)</label>
             <textarea
               value={mnemonic}
               onChange={(e) => setMnemonic(e.target.value)}
@@ -255,7 +255,7 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
             type="submit"
             className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-cyan-950 text-xs font-black tracking-[0.3em] transition-all uppercase shadow-[0_4px_20px_rgba(6,182,212,0.3)]"
           >
-            DECRYPT_VAULT
+            Vaultを復号
           </button>
         </form>
       )}
@@ -266,7 +266,7 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 text-center py-10">
       <div className="flex items-center gap-4 mb-6 cursor-pointer hover:text-cyan-300 transition-colors text-cyan-700 text-left" onClick={() => setMode('auth_selection')}>
         <X className="w-4 h-4" />
-        <span className="text-[0.6rem] font-bold tracking-widest uppercase">Go_Back</span>
+        <span className="text-[0.6rem] font-bold tracking-widest uppercase">戻る</span>
       </div>
 
       <div className="relative inline-block mb-10">
@@ -275,7 +275,7 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
       </div>
 
       <div className="space-y-4">
-        <h3 className="text-sm font-mono text-cyan-100 uppercase tracking-widest">Waiting_for_Biometric_Response</h3>
+        <h3 className="text-sm font-mono text-cyan-100 uppercase tracking-widest">生体認証の応答を待機中...</h3>
         <p className="text-[0.6rem] text-cyan-700 max-w-xs mx-auto leading-relaxed">
           デバイスのセンサーに指を置くか、顔認証を行ってください。
         </p>

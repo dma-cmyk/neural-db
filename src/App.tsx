@@ -791,7 +791,7 @@ export default function App() {
                   NEURAL_DB
                 </h1>
                 {!activeApiKey && (
-                  <span className="text-[0.5rem] text-zinc-500 tracking-[0.3em] font-bold uppercase mt-1 hidden sm:block">Offline_Local_Mode</span>
+                  <span className="text-[0.5rem] text-zinc-500 tracking-[0.3em] font-bold uppercase mt-1 hidden sm:block">オフライン・ローカルモード</span>
                 )}
               </div>
             </div>
@@ -847,20 +847,20 @@ export default function App() {
                   <button
                     onClick={handleLogout}
                     className="p-2 text-zinc-600 hover:text-red-400 hover:bg-red-950/20 transition-all rounded-sm flex items-center gap-2 mr-2 border border-transparent hover:border-red-900/50"
-                    title="Switch User / Logout"
+                    title="ユーザー切り替え / ログアウト"
                   >
                     <LogOut className="w-4 h-4" />
-                    <span className="text-[0.6rem] font-bold uppercase tracking-wider hidden sm:inline">Logout</span>
+                    <span className="text-[0.6rem] font-bold uppercase tracking-wider hidden sm:inline">ログアウト</span>
                   </button>
                 )}
                 {masterKey && (
                   <button
                     onClick={handleDeleteVault}
                     className="p-2 text-zinc-800 hover:text-red-600 hover:bg-red-950/20 transition-all rounded-sm flex items-center gap-2 mr-2 border border-transparent hover:border-red-900/50"
-                    title="Delete This User Vault"
+                    title="ユーザーVaultを削除"
                   >
                     <Trash2 className="w-4 h-4" />
-                    <span className="text-[0.6rem] font-bold uppercase tracking-wider hidden sm:inline text-zinc-900">Delete</span>
+                    <span className="text-[0.6rem] font-bold uppercase tracking-wider hidden sm:inline text-zinc-900">消去</span>
                   </button>
                 )}
                 <button onClick={handleExport} className="p-2 text-cyan-600 hover:text-cyan-300 hover:bg-cyan-950/50 transition-colors">
@@ -936,7 +936,7 @@ export default function App() {
                   className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-cyan-900 text-cyan-500 hover:bg-cyan-900/20 hover:text-cyan-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono text-xs font-bold whitespace-nowrap"
                 >
                   <RefreshCw className={`w-4 h-4 ${isAdding ? 'animate-spin' : ''}`} />
-                  <span className="hidden lg:inline">BATCH_SYNC</span>
+                  <span className="hidden lg:inline">一括同期 (SYNC)</span>
                   <span className="lg:hidden">SYNC</span>
                 </button>
               </div>
@@ -959,7 +959,7 @@ export default function App() {
           <div className="bg-zinc-900 border border-fuchsia-500 shadow-[0_0_30px_rgba(217,70,239,0.2)] w-full max-w-md overflow-hidden">
             <div className="bg-fuchsia-600 px-4 py-2 flex items-center justify-between">
               <h3 className="text-white text-xs font-bold tracking-widest flex items-center gap-2">
-                <Key className="w-4 h-4" /> API_KEY_MANAGER
+                <Key className="w-4 h-4" /> APIキー管理ターミナル
               </h3>
               <button onClick={() => setIsApiKeyModalOpen(false)} className="text-white hover:text-fuchsia-200">
                 <X className="w-5 h-5" />
@@ -1028,7 +1028,7 @@ export default function App() {
                 onClick={() => setIsApiKeyModalOpen(false)}
                 className="text-[0.65rem] font-bold text-fuchsia-400 hover:text-fuchsia-300 tracking-widest"
               >
-                [ CLOSE ]
+                [ 閉じる ]
               </button>
             </div>
           </div>
@@ -1183,7 +1183,7 @@ export default function App() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className={`w-4 h-4 ${isEncrypted ? 'text-cyan-400' : 'text-zinc-700'}`} />
-                  <span className="text-[0.65rem] font-bold text-cyan-100 uppercase tracking-widest">Neural_Encryption</span>
+                  <span className="text-[0.65rem] font-bold text-cyan-100 uppercase tracking-widest">ニューラル暗号化</span>
                 </div>
                 <button
                   onClick={handleToggleEncryption}
@@ -1203,7 +1203,7 @@ export default function App() {
               </p>
               {isEncrypted && !masterKey && (
                 <div className="p-2 bg-amber-950/20 border border-amber-900/50 text-amber-500 text-[0.55rem] font-bold animate-pulse">
-                  AUTHENTICATION_REQUIRED_FOR_SAVE
+                  保存には認証が必要です
                 </div>
               )}
             </div>
@@ -1268,7 +1268,7 @@ export default function App() {
                         {!note.vector && (
                           <div className="flex items-center gap-1 text-[0.55rem] text-fuchsia-500/80 bg-fuchsia-950/20 px-1 border border-fuchsia-900/40 font-bold animate-pulse">
                             <RefreshCw className="w-2.5 h-2.5" />
-                            <span>NOT_SYNCED</span>
+                            <span>未同期</span>
                           </div>
                         )}
                       </div>
@@ -1336,10 +1336,10 @@ export default function App() {
             <div className="flex items-center gap-4">
               <BrainCircuit className="w-6 h-6 text-fuchsia-500" />
               <div className="flex flex-col">
-                <span className="text-[0.6rem] text-cyan-600 tracking-[0.3em] font-bold uppercase">Focus Mode Active</span>
+                <span className="text-[0.6rem] text-cyan-600 tracking-[0.3em] font-bold uppercase">集中モード起動中</span>
                 <span className="text-xs text-fuchsia-400 font-mono italic">
-                  {isProcessingFile ? 'System: Analyzing file...' : 
-                   isGeneratingTitle ? 'System: Generating title...' : 'System: Waiting for input...'}
+                  {isProcessingFile ? 'System: ファイル解析中...' : 
+                   isGeneratingTitle ? 'System: タイトル生成中...' : 'System: 入力待機中...'}
                 </span>
               </div>
             </div>
@@ -1365,7 +1365,7 @@ export default function App() {
             <input
               type="text"
               className="w-full bg-transparent border-none outline-none text-3xl md:text-5xl font-bold tracking-tight text-cyan-50 placeholder-cyan-900 mb-8"
-              placeholder="タイトルを思考中..."
+              placeholder="タイトルを入力..."
               value={newNoteTitle}
               onChange={(e) => setNewNoteTitle(e.target.value)}
               onPaste={handlePaste}
@@ -1420,7 +1420,7 @@ export default function App() {
             <div className="flex gap-4">
               <label className="flex items-center gap-2 px-6 py-3 bg-zinc-950 text-cyan-600 hover:text-cyan-300 transition-all border border-cyan-900 cursor-pointer text-xs font-bold tracking-widest uppercase">
                 <Paperclip className="w-4 h-4" />
-                <span>Attach</span>
+                <span>添付</span>
                 <input type="file" className="hidden" onChange={handleFileUpload} />
               </label>
               
@@ -1429,7 +1429,7 @@ export default function App() {
                 disabled={isAdding || (!newNoteText.trim() && !pendingFile)}
                 className="px-10 py-3 bg-cyan-950/50 text-cyan-300 border border-cyan-400 hover:bg-cyan-900 hover:shadow-[0_0_25px_rgba(6,182,212,0.3)] disabled:opacity-30 transition-all text-xs font-bold tracking-[0.2em] uppercase flex items-center gap-3"
               >
-                {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Execute_Save'}
+                {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : '保存実行'}
               </button>
             </div>
           </footer>
