@@ -44,6 +44,12 @@ interface ApiKey {
   key: string;
 }
 
+interface UserProfile {
+  vaultId: string;
+  name: string;
+  lastActive: string;
+}
+
 interface GeminiModel {
   id: string;
   name: string;
@@ -101,6 +107,7 @@ export default function App() {
     return localStorage.getItem('neural_db_encrypted') === 'true';
   });
   const [isLocked, setIsLocked] = useState<boolean>(true);
+  const [profiles, setProfiles] = useState<UserProfile[]>([]);
   
   const inputRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -143,6 +150,12 @@ export default function App() {
         setIsLocked(true);
       }
     }
+
+    // プロファイルのロード
+    const savedProfiles = localStorage.getItem('neural_db_profiles');
+    if (savedProfiles) {
+      setProfiles(JSON.parse(savedProfiles));
+    }
   }, []);
 
   // 認証成功時の処理
@@ -156,6 +169,17 @@ export default function App() {
           .then(decrypted => {
             setNotes(JSON.parse(decrypted));
             setIsLocked(false);
+            
+            // プロファイル一覧を更新
+            setProfiles(prev => {
+              const existing = prev.find(p => p.vaultId === vaultId);
+              const updated = existing 
+                ? prev.map(p => p.vaultId === vaultId ? { ...p, lastActive: new Date().toISOString() } : p)
+                : [...prev, { vaultId, name: `User_${vaultId.slice(0, 4)}`, lastActive: new Date().toISOString() }];
+              
+              localStorage.setItem('neural_db_profiles', JSON.stringify(updated));
+              return updated;
+            });
           })
           .catch(err => {
             console.error('復号に失敗しました:', err);
@@ -648,6 +672,13 @@ export default function App() {
     const vaultKey = `neural_db_vault_${vaultId}`;
     localStorage.removeItem(vaultKey);
     
+    // プロファイルを削除
+    setProfiles(prev => {
+      const updated = prev.filter(p => p.vaultId !== vaultId);
+      localStorage.setItem('neural_db_profiles', JSON.stringify(updated));
+      return updated;
+    });
+
     // 状態リセット
     setMasterKey(null);
     setVaultId(null);
@@ -742,7 +773,8 @@ export default function App() {
       {isLocked && (
         <NeuralLink 
           onUnlock={handleUnlock} 
-          isInitialSetup={!isEncrypted && !notes.length} 
+          isInitialSetup={!isEncrypted && notes.length === 0} 
+          profiles={profiles}
         />
       )}
       

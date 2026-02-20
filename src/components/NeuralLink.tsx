@@ -1,20 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { Fingerprint, Clipboard, ShieldAlert, Key, Zap, Check, X, ShieldCheck, Download, Camera } from 'lucide-react';
+import { Fingerprint, Clipboard, ShieldAlert, Key, Zap, Check, X, ShieldCheck, Download, Camera, Plus, ChevronLeft } from 'lucide-react';
 import { generateMnemonic } from '../lib/encryption';
+
+interface UserProfile {
+  vaultId: string;
+  name: string;
+  lastActive: string;
+}
 
 interface NeuralLinkProps {
   onUnlock: (mnemonic: string) => void;
   isInitialSetup: boolean;
+  profiles: UserProfile[];
 }
 
 /**
  * 認証・暗号鍵管理を行うSFチックなUIコンポーネント
  */
-export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup }) => {
-  const [mode, setMode] = useState<'selection' | 'mnemonic' | 'biometric'>('selection');
+export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup, profiles }) => {
+  const [mode, setMode] = useState<'profile_selection' | 'selection' | 'mnemonic' | 'biometric'>(
+    profiles.length > 0 && !isInitialSetup ? 'profile_selection' : 'selection'
+  );
   const [mnemonic, setMnemonic] = useState('');
   const [generatedMnemonic, setGeneratedMnemonic] = useState('');
   const [error, setError] = useState('');
+  const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null);
 
   // セットアップ時のシード生成
   useEffect(() => {
@@ -36,8 +46,64 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
     onUnlock(generatedMnemonic);
   };
 
+  const renderProfileSelection = () => (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="text-center mb-8">
+        <div className="inline-block p-4 bg-fuchsia-500/10 border border-fuchsia-500/30 rounded-full mb-4 relative">
+          <ShieldCheck className="w-12 h-12 text-fuchsia-400" />
+          <div className="absolute inset-0 border border-fuchsia-400 rounded-full animate-ping opacity-20"></div>
+        </div>
+        <h2 className="text-xl font-mono text-cyan-100 tracking-[0.2em] font-bold uppercase">Identity_Selection</h2>
+        <p className="text-[0.6rem] text-cyan-700 tracking-widest mt-2 uppercase">Select_Active_Neural_Partition</p>
+      </div>
+
+      <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+        {profiles.sort((a, b) => new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime()).map(profile => (
+          <button
+            key={profile.vaultId}
+            onClick={() => {
+              setSelectedProfile(profile);
+              setMode('selection');
+            }}
+            className="w-full group relative flex items-center justify-between p-4 bg-zinc-900 border border-cyan-900/40 hover:border-fuchsia-500/50 hover:bg-fuchsia-500/5 transition-all text-left"
+          >
+            <div className="flex flex-col">
+              <span className="text-sm font-bold text-cyan-100 group-hover:text-fuchsia-300 transition-colors">{profile.name}</span>
+              <span className="text-[0.55rem] text-zinc-600 font-mono">ID: {profile.vaultId.slice(0, 8)}...</span>
+            </div>
+            <div className="text-right">
+              <div className="text-[0.5rem] text-zinc-700 uppercase">Last_Active</div>
+              <div className="text-[0.6rem] text-cyan-800 font-mono">{new Date(profile.lastActive).toLocaleDateString()}</div>
+            </div>
+            <div className="absolute top-0 right-0 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Zap className="w-3 h-3 text-fuchsia-500" />
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <div className="pt-4 border-t border-cyan-900/30">
+        <button
+          onClick={() => {
+            setSelectedProfile(null);
+            setMode('selection');
+          }}
+          className="w-full py-3 bg-zinc-950 border border-cyan-900 text-cyan-700 hover:text-cyan-300 hover:border-cyan-500 transition-all text-[0.6rem] font-bold tracking-widest uppercase flex items-center justify-center gap-2"
+        >
+          <Plus className="w-3 h-3" /> New_Identity / Register
+        </button>
+      </div>
+    </div>
+  );
+
   const renderSelection = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {profiles.length > 0 && (
+        <div className="flex items-center gap-4 mb-2 cursor-pointer hover:text-cyan-300 transition-colors text-cyan-700" onClick={() => setMode('profile_selection')}>
+          <ChevronLeft className="w-4 h-4" />
+          <span className="text-[0.6rem] font-bold tracking-widest uppercase">Select_Identity</span>
+        </div>
+      )}
       <div className="text-center mb-8">
         <div className="inline-block p-4 bg-cyan-500/10 border border-cyan-500/30 rounded-full mb-4 relative">
           <ShieldAlert className="w-12 h-12 text-cyan-400 group-hover:scale-110 transition-transform" />
@@ -206,6 +272,7 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
         <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyan-500"></div>
 
         <div className="p-8 relative">
+          {mode === 'profile_selection' && renderProfileSelection()}
           {mode === 'selection' && renderSelection()}
           {mode === 'mnemonic' && renderMnemonic()}
           {mode === 'biometric' && renderBiometric()}
