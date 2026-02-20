@@ -1,7 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Fingerprint, QrCode, Clipboard, ShieldAlert, Key, Zap, Check, X, ShieldCheck, Download, Camera } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import React, { useState, useEffect } from 'react';
+import { Fingerprint, Clipboard, ShieldAlert, Key, Zap, Check, X, ShieldCheck, Download, Camera } from 'lucide-react';
 import { generateMnemonic } from '../lib/encryption';
 
 interface NeuralLinkProps {
@@ -13,11 +11,10 @@ interface NeuralLinkProps {
  * 認証・暗号鍵管理を行うSFチックなUIコンポーネント
  */
 export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup }) => {
-  const [mode, setMode] = useState<'selection' | 'mnemonic' | 'qr_scan' | 'qr_display' | 'biometric'>('selection');
+  const [mode, setMode] = useState<'selection' | 'mnemonic' | 'biometric'>('selection');
   const [mnemonic, setMnemonic] = useState('');
   const [generatedMnemonic, setGeneratedMnemonic] = useState('');
   const [error, setError] = useState('');
-  const [scanResult, setScanResult] = useState<string | null>(null);
 
   // セットアップ時のシード生成
   useEffect(() => {
@@ -25,29 +22,6 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
       setGeneratedMnemonic(generateMnemonic());
     }
   }, [isInitialSetup, generatedMnemonic]);
-
-  // QRスキャナーの初期化
-  useEffect(() => {
-    if (mode === 'qr_scan') {
-      const scanner = new Html5QrcodeScanner(
-        "qr-reader",
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        /* verbose= */ false
-      );
-
-      scanner.render((result) => {
-        setScanResult(result);
-        scanner.clear();
-        onUnlock(result);
-      }, (err) => {
-        // Ignore parsing errors
-      });
-
-      return () => {
-        scanner.clear().catch(e => console.error(e));
-      };
-    }
-  }, [mode, onUnlock]);
 
   const handleMnemonicSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,24 +68,6 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
           <div className="absolute bottom-0 left-0 h-[1px] bg-cyan-500 w-0 group-hover:w-full transition-all duration-700"></div>
         </button>
 
-        {/* QRスキャンボタン */}
-        <button
-          onClick={() => setMode(isInitialSetup ? 'qr_display' : 'qr_scan')}
-          className="group relative flex items-center justify-between p-4 bg-zinc-900 border border-cyan-900/50 hover:border-cyan-400 hover:bg-cyan-500/10 transition-all overflow-hidden"
-        >
-          <div className="flex items-center gap-4 z-10">
-            <QrCode className="w-5 h-5 text-cyan-500 group-hover:text-cyan-300" />
-            <div className="text-left">
-              <div className="text-[0.7rem] font-bold text-cyan-100 uppercase tracking-tighter">
-                {isInitialSetup ? 'Digital_Key_Unit' : 'Key_Scanner'}
-              </div>
-              <div className="text-[0.55rem] text-cyan-700">{isInitialSetup ? 'GENERATE_QR_ACCESS_TOKEN' : 'SCAN_NEURAL_TOKEN_QR'}</div>
-            </div>
-          </div>
-          <Zap className="w-4 h-4 text-cyan-900 group-hover:text-cyan-400 transition-colors" />
-          <div className="absolute bottom-0 left-0 h-[1px] bg-cyan-500 w-0 group-hover:w-full transition-all duration-700"></div>
-        </button>
-
         {/* シードフレーズボタン */}
         <button
           onClick={() => setMode('mnemonic')}
@@ -143,7 +99,7 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
           <div className="bg-cyan-950/20 border border-cyan-500/30 p-4 rounded-sm">
             <p className="text-[0.65rem] text-cyan-400 font-bold mb-4 uppercase tracking-[0.2em]">Generate_New_Seed_Phrase</p>
             <div className="grid grid-cols-3 gap-2">
-              {generatedMnemonic.split(' ').map((word, i) => (
+              {generatedMnemonic.split(' ').map((word: string, i: number) => (
                 <div key={i} className="bg-zinc-900/80 border border-cyan-900/50 p-2 text-center text-[0.7rem] font-mono text-cyan-100 relative group">
                   <span className="absolute top-0 left-1 text-[0.4rem] text-cyan-900">{i + 1}</span>
                   {word}
@@ -205,61 +161,6 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
     </div>
   );
 
-  const renderQrDisplay = () => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 text-center">
-      <div className="flex items-center gap-4 mb-6 cursor-pointer hover:text-cyan-300 transition-colors text-cyan-700 text-left" onClick={() => setMode('selection')}>
-        <X className="w-4 h-4" />
-        <span className="text-[0.6rem] font-bold tracking-widest uppercase">Go_Back</span>
-      </div>
-
-      <div className="bg-white p-6 inline-block rounded-sm mb-4 relative">
-        <QRCodeSVG value={generatedMnemonic} size={200} level="M" />
-        <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-cyan-500 -m-1"></div>
-        <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-cyan-500 -m-1"></div>
-        <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-cyan-500 -m-1"></div>
-        <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-cyan-500 -m-1"></div>
-      </div>
-
-      <div className="max-w-xs mx-auto space-y-4">
-        <p className="text-[0.65rem] text-cyan-400 font-bold uppercase tracking-[0.15em]">Digital_Auth_Key_Generated</p>
-        <p className="text-[0.55rem] text-cyan-800 leading-relaxed italic">
-          このQRコードは、他デバイスへの「Neural_Link」接続に使用します。外部に公開しないでください。
-        </p>
-        
-        <button
-          onClick={handleSetupComplete}
-          className="w-full py-3 bg-cyan-900/40 border border-cyan-400 text-cyan-400 text-[0.65rem] font-bold tracking-[0.2em] hover:bg-cyan-400 hover:text-cyan-950 transition-all uppercase"
-        >
-          CONFIRM_KEY_RETENTION
-        </button>
-      </div>
-    </div>
-  );
-
-  const renderQrScan = () => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-      <div className="flex items-center gap-4 mb-6 cursor-pointer hover:text-cyan-300 transition-colors text-cyan-700" onClick={() => setMode('selection')}>
-        <X className="w-4 h-4" />
-        <span className="text-[0.6rem] font-bold tracking-widest uppercase">Go_Back</span>
-      </div>
-
-      <div className="relative border border-cyan-500/30 bg-zinc-950 overflow-hidden group">
-        <div id="qr-reader" className="w-full"></div>
-        {/* 装飾用オーバーレイ */}
-        <div className="absolute inset-0 pointer-events-none border-2 border-cyan-500/20 m-4"></div>
-        <div className="absolute top-0 left-0 h-1 w-full bg-cyan-500 shadow-[0_0_10px_#06b6d4] animate-scan opacity-40"></div>
-      </div>
-
-      <div className="text-center space-y-2">
-        <div className="flex items-center justify-center gap-2 text-cyan-500 animate-pulse">
-          <Camera className="w-4 h-4" />
-          <span className="text-[0.6rem] font-bold tracking-widest uppercase">Awaiting_Neural_Key_Scan...</span>
-        </div>
-        <p className="text-[0.55rem] text-cyan-900 italic">Position the QR code within the sensor range.</p>
-      </div>
-    </div>
-  );
-
   const renderBiometric = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 text-center py-10">
       <div className="flex items-center gap-4 mb-6 cursor-pointer hover:text-cyan-300 transition-colors text-cyan-700 text-left" onClick={() => setMode('selection')}>
@@ -307,8 +208,6 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
         <div className="p-8 relative">
           {mode === 'selection' && renderSelection()}
           {mode === 'mnemonic' && renderMnemonic()}
-          {mode === 'qr_display' && renderQrDisplay()}
-          {mode === 'qr_scan' && renderQrScan()}
           {mode === 'biometric' && renderBiometric()}
         </div>
       </div>
