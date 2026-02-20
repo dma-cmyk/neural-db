@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Search, Plus, Loader2, Trash2, X, BrainCircuit, Info, Key, Download, Upload, Edit2, Terminal, Maximize2, Minimize2, Zap, RefreshCw, Menu } from 'lucide-react';
 import { calculateCosineSimilarity } from './lib/utils';
-import { getEmbedding, summarizeFile, generateTitle, batchGetEmbeddings } from './lib/gemini';
+import { getEmbedding, summarizeFile, generateTitle, batchGetEmbeddings, generateTags } from './lib/gemini';
 import { NoteContent } from './components/NoteContent';
 import { FilePreview } from './components/FilePreview';
-import { File as FileIcon, Paperclip, ChevronDown, Check, Settings, ExternalLink, Unlink } from 'lucide-react';
+import { TagCloud } from './components/TagCloud';
+import { File as FileIcon, Paperclip, ChevronDown, Check, Settings, ExternalLink, Unlink, Tag as TagIcon } from 'lucide-react';
 import { LinkPreview } from './components/LinkPreview';
 
 const defaultApiKey = ""; // 実行環境から自動的に提供されます
@@ -21,6 +22,7 @@ interface Note {
   fileName: string | null;
   fileType: string | null;
   links?: LinkMetadata[];
+  tags?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -84,6 +86,7 @@ export default function App() {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   
   const inputRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -141,6 +144,35 @@ export default function App() {
     if (selectedApiKeyId === id) setSelectedApiKeyId(null);
   };
 
+  const handleToggleTag = (tag: string) => {
+    setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
+  };
+
+  const allTags = useMemo(() => {
+    const counts: Record<string, number> = {};
+    notes.forEach(note => {
+      (note.tags || []).forEach(tag => {
+        counts[tag] = (counts[tag] || 0) + 1;
+      });
+    });
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }, [notes]);
+
+  const handleCloseInput = () => {
+    setNewNoteTitle('');
+    setNewNoteText('');
+    setPendingFile(null);
+    setEditingNoteId(null);
+    setIsInputExpanded(false);
+    setIsFocusMode(false);
+  };
+
+  const handleToggleFocus = () => {
+    setIsFocusMode(prev => !prev);
+  };
+
   // メモの保存・更新
   const handleSaveNote = async () => {
     if (!newNoteText.trim() && !pendingFile) {
@@ -179,24 +211,17 @@ export default function App() {
             const existingNote = notes.find(n => n.id === editingNoteId);
             if (existingNote && existingNote.text === newNoteText) {
               vectorToUse = existingNote.vector;
+            } else {
+              // 既存ノートのテキストが変更された場合、または新規テキストノートの場合
+              vectorToUse = await getEmbedding(newNoteText, activeApiKey);
             }
-          }
-
-          if (!vectorToUse) {
-            const linkContext = linkMetadataResults
-              .filter(l => l.status === 'success' && l.title)
-              .map(l => l.title)
-              .join('\n');
-            const textToEmbed = [
-              newNoteTitle, 
-              newNoteText,
-              linkContext
-            ].filter(Boolean).join('\n');
-            vectorToUse = await getEmbedding(textToEmbed, activeApiKey);
+          } else {
+            // 新規テキストノートの場合
+            vectorToUse = await getEmbedding(newNoteText, activeApiKey);
           }
         }
       }
-      
+
       let finalTitle = newNoteTitle.trim();
       
       if (!finalTitle) {
@@ -211,6 +236,25 @@ export default function App() {
           finalTitle = pendingFile ? pendingFile.name : (newNoteText.slice(0, 10) || "無題のメモ");
         }
       }
+
+      // タグ生成
+      let finalTags: string[] | undefined = (editingNoteId && !activeApiKey) ? notes.find(n => n.id === editingNoteId)?.tags : undefined;
+      if (activeApiKey) {
+        try {
+          finalTags = await generateTags(pendingFile ? finalSummary : newNoteText, activeApiKey, selectedModelId);
+          
+          // タグを含めた最終的なベクトルを生成（既に取得済みでも上書きして精度を上げる）
+          const linkContext = linkMetadataResults
+            .filter(l => l.status === 'success' && l.title)
+            .map(l => l.title)
+            .join('\n');
+          const tagContext = finalTags.join(', ');
+          const textToEmbed = [finalTitle, pendingFile ? finalSummary : newNoteText, linkContext, tagContext].filter(Boolean).join('\n');
+          vectorToUse = await getEmbedding(textToEmbed, activeApiKey);
+        } catch (e) {
+          console.error('Tag generation/vectorization failed', e);
+        }
+      }
       
       const noteData: Note = {
         id: editingNoteId || crypto.randomUUID(),
@@ -221,7 +265,8 @@ export default function App() {
         fileData: pendingFile ? pendingFile.data : (editingNoteId ? notes.find(n => n.id === editingNoteId)?.fileData ?? null : null),
         fileName: pendingFile ? pendingFile.name : (editingNoteId ? notes.find(n => n.id === editingNoteId)?.fileName ?? null : null),
         fileType: pendingFile ? pendingFile.type : (editingNoteId ? notes.find(n => n.id === editingNoteId)?.fileType ?? null : null),
-        links: linkMetadataResults.length > 0 ? linkMetadataResults : undefined,
+        links: linkMetadataResults.length > 0 ? linkMetadataResults : (editingNoteId ? notes.find(n => n.id === editingNoteId)?.links : undefined),
+        tags: finalTags,
         createdAt: editingNoteId ? notes.find(n => n.id === editingNoteId)?.createdAt ?? new Date().toISOString() : new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -271,14 +316,19 @@ export default function App() {
         .map(l => l.title)
         .join('\n');
 
+      // タグの生成
+      const currentTags = await generateTags(currentText, activeApiKey, selectedModelId);
+      const tagContext = currentTags.join(', ');
+
       const textToEmbed = [
         note.title,
         currentText,
-        linkContext
+        linkContext,
+        tagContext
       ].filter(Boolean).join('\n');
 
       const vector = await getEmbedding(textToEmbed, activeApiKey);
-      setNotes(prev => prev.map(n => n.id === id ? { ...n, vector, text: currentText, summary: currentSummary, links: currentLinks } : n));
+      setNotes(prev => prev.map(n => n.id === id ? { ...n, vector, text: currentText, summary: currentSummary, links: currentLinks, tags: currentTags } : n));
     } catch (err) {
       console.error('Vectorization failed:', err);
       setError('AI処理（再解析）に失敗しました。APIキーやモデル設定を確認してください。');
@@ -329,7 +379,17 @@ export default function App() {
           }
         }
 
-        return { id: note.id, text: currentText, title: note.title, links: currentLinks };
+        // 1.3 AIタグ生成
+        let currentTags: string[] = [];
+        try {
+          currentTags = await generateTags(currentText, activeApiKey, selectedModelId);
+          const existing = updatedNotesMap.get(note.id) || {};
+          updatedNotesMap.set(note.id, { ...existing, tags: currentTags });
+        } catch (e) {
+          console.error(`Failed to generate tags for: ${note.id}`, e);
+        }
+
+        return { id: note.id, text: currentText, title: note.title, links: currentLinks, tags: currentTags };
       });
 
       const processedItems = (await Promise.all(summaryPromises)).filter(item => item !== null);
@@ -346,7 +406,8 @@ export default function App() {
           .filter(l => l.status === 'success' && l.title)
           .map(l => l.title)
           .join('\n');
-        return [item.title, item.text, linkContext].filter(Boolean).join('\n');
+        const tagContext = (item.tags || []).join(', ');
+        return [item.title, item.text, linkContext, tagContext].filter(Boolean).join('\n');
       });
       const embeddings = await batchGetEmbeddings(textsToEmbed, activeApiKey);
 
@@ -374,19 +435,6 @@ export default function App() {
     } finally {
       setIsAdding(false);
     }
-  };
-
-  const handleCloseInput = () => {
-    setNewNoteTitle('');
-    setNewNoteText('');
-    setPendingFile(null);
-    setEditingNoteId(null);
-    setIsInputExpanded(false);
-    setIsFocusMode(false);
-  };
-
-  const handleToggleFocus = () => {
-    setIsFocusMode(prev => !prev);
   };
 
   const handleEditNote = (note: Note) => {
@@ -520,19 +568,30 @@ export default function App() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const displayedNotes = useMemo(() => {
+  // ベクトル類似度検索 + キーワードフィルタリング + タグフィルタリング
+  const filteredNotes = useMemo(() => {
+    let result = [...notes];
+    
+    // 1. タグフィルタリング
+    if (selectedTags.length > 0) {
+      result = result.filter(n => 
+        selectedTags.every(t => (n.tags || []).includes(t))
+      );
+    }
+
+    // 2. 検索フィルタリング
     const query = searchQuery.toLowerCase().trim();
     
     // ベクトル検索時
     if (searchVector) {
-      return notes
+      return result
         .map(note => ({ ...note, score: note.vector ? calculateCosineSimilarity(searchVector, note.vector) : 0 }))
         .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
     }
     
     // キーワード検索時（または検索なし）
     if (query) {
-      return notes
+      return result
         .filter(note => 
           note.title.toLowerCase().includes(query) || 
           note.text.toLowerCase().includes(query) ||
@@ -541,8 +600,8 @@ export default function App() {
         .map(n => ({ ...n, score: null as number | null }));
     }
 
-    return notes.map(n => ({ ...n, score: null as number | null }));
-  }, [notes, searchVector, searchQuery]);
+    return result.map(n => ({ ...n, score: null as number | null }));
+  }, [notes, searchVector, searchQuery, selectedTags]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -889,7 +948,13 @@ export default function App() {
           </div>
         )}
 
-        {notes.length === 0 ? (
+        <TagCloud 
+          tags={allTags} 
+          selectedTags={selectedTags} 
+          onToggleTag={handleToggleTag} 
+        />
+
+        {filteredNotes.length === 0 ? (
           <div className="text-center py-20">
             <div className="w-24 h-24 border border-cyan-900/50 rounded-none flex items-center justify-center mx-auto mb-6 relative overflow-hidden bg-zinc-900/50">
               <div className="absolute inset-0 bg-gradient-to-t from-cyan-900/20 to-transparent"></div>
@@ -897,15 +962,16 @@ export default function App() {
             </div>
             <p className="text-cyan-700 tracking-widest text-sm">データがありません</p>
           </div>
-        ) : displayedNotes.length === 0 ? (
+        ) : filteredNotes.length === 0 ? (
           <div className="text-center py-10 border border-dashed border-red-900/50 bg-red-950/10">
             <p className="text-red-500/70 tracking-widest text-sm">一致するレコードがありません</p>
           </div>
         ) : (
-          <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-5 space-y-5">
-            {displayedNotes.map((note) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredNotes.map((note) => (
               <div 
-                key={note.id} 
+                key={note.id}
+                onClick={() => handleEditNote(note)}
                 className={`break-inside-avoid relative group bg-zinc-900 border transition-all duration-300 ${
                   note.score !== null && note.score > 0.6 
                     ? 'border-fuchsia-500/50 shadow-[0_0_15px_rgba(217,70,239,0.15)] bg-gradient-to-b from-fuchsia-950/20 to-transparent' 
@@ -942,6 +1008,26 @@ export default function App() {
 
                   {note.links && note.links.length > 0 && (
                     <LinkPreview links={note.links} />
+                  )}
+
+                  {note.tags && note.tags.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {note.tags.map(tag => (
+                        <button
+                          key={tag}
+                          onClick={(e) => { e.stopPropagation(); handleToggleTag(tag); }}
+                          className={`
+                            px-1.5 py-0.5 text-[0.6rem] font-mono border transition-all
+                            ${selectedTags.includes(tag) 
+                              ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300' 
+                              : 'bg-zinc-950/40 border-cyan-900/40 text-cyan-700 hover:border-cyan-600 hover:text-cyan-400'
+                            }
+                          `}
+                        >
+                          # {tag}
+                        </button>
+                      ))}
+                    </div>
                   )}
                   
                   <div className="mt-5 pt-3 border-t border-zinc-800 flex items-end justify-between">

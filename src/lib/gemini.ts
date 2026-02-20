@@ -143,3 +143,38 @@ export const generateTitle = async (
     return data.candidates[0].content.parts[0].text.trim().replace(/^「|」$/g, '');
   });
 };
+
+/**
+ * Gemini APIを使用してテキストからタグ（キーワード）を生成します。
+ */
+export const generateTags = async (
+  text: string,
+  apiKeyToUse: string,
+  modelId: string = 'gemini-2.5-flash-lite'
+): Promise<string[]> => {
+  return withRetry(async () => {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKeyToUse}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: `以下の内容から重要かつ汎用的なキーワードを3個から5個抽出してください。
+結果はカンマ区切りの文字列だけで返してください（例: AI, 宇宙, 技術）。
+他の説明や文章は一切不要です:\n\n${text}` }]
+        }]
+      })
+    });
+
+    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+    const data = await response.json();
+    const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!resultText) {
+      throw new Error('タグの生成に失敗しました');
+    }
+    
+    return resultText.split(/[,、|]/)
+      .map((t: string) => t.trim())
+      .filter((t: string) => t.length > 0 && t.length < 15)
+      .slice(0, 5);
+  });
+};
