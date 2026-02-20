@@ -33,6 +33,20 @@ interface ApiKey {
   key: string;
 }
 
+interface GeminiModel {
+  id: string;
+  name: string;
+  description: string;
+  isPaid?: boolean;
+}
+
+const AVAILABLE_MODELS: GeminiModel[] = [
+  { id: 'gemini-2.5-flash-lite', name: '2.5 Flash Lite', description: '高速・軽量 (デフォルト)' },
+  { id: 'gemini-3-flash-preview', name: '3 Flash Preview', description: '次世代高速モデル' },
+  { id: 'gemini-2.5-pro', name: '2.5 Pro', description: '高性能・多目的' },
+  { id: 'gemini-3-pro-preview', name: '3 Pro Preview', description: '次世代最上位モデル', isPaid: true },
+];
+
 // --- メインコンポーネント ---
 
 export default function App() {
@@ -44,6 +58,7 @@ export default function App() {
   
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [selectedApiKeyId, setSelectedApiKeyId] = useState<string | null>(null);
+  const [selectedModelId, setSelectedModelId] = useState<string>('gemini-2.5-flash-lite');
   
   const [isAdding, setIsAdding] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -142,7 +157,7 @@ export default function App() {
         setIsProcessingFile(true);
         try {
           // ファイルの要約を取得
-          finalSummary = await summarizeFile(pendingFile.data, pendingFile.type, activeApiKey);
+          finalSummary = await summarizeFile(pendingFile.data, pendingFile.type, activeApiKey, selectedModelId);
           // 要約をベクトル化
           vectorToUse = await getEmbedding(finalSummary, activeApiKey);
         } finally {
@@ -167,7 +182,7 @@ export default function App() {
       if (!finalTitle) {
         setIsGeneratingTitle(true);
         try {
-          finalTitle = await generateTitle(pendingFile ? finalSummary : newNoteText, activeApiKey);
+          finalTitle = await generateTitle(pendingFile ? finalSummary : newNoteText, activeApiKey, selectedModelId);
         } finally {
           setIsGeneratingTitle(false);
         }
@@ -411,7 +426,23 @@ export default function App() {
             </label>
           </div>
 
-          <div className="relative flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-zinc-900 px-3 py-2 border border-cyan-900/50 focus-within:border-cyan-400 transition-all min-w-[150px]">
+              <BrainCircuit className={`w-4 h-4 ${AVAILABLE_MODELS.find(m => m.id === selectedModelId)?.isPaid ? 'text-amber-400' : 'text-cyan-500'}`} />
+              <select 
+                className="bg-transparent border-none text-[0.65rem] focus:ring-0 p-0 outline-none text-cyan-100 flex-1 appearance-none cursor-pointer font-bold"
+                value={selectedModelId}
+                onChange={(e) => setSelectedModelId(e.target.value)}
+              >
+                {AVAILABLE_MODELS.map(model => (
+                  <option key={model.id} value={model.id} className="bg-zinc-900">
+                    {model.name} {model.isPaid ? '★' : ''}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3 h-3 text-cyan-600 ml-1 pointer-events-none" />
+            </div>
+
             <div className="flex items-center gap-2 bg-zinc-900 px-3 py-2 border border-fuchsia-900/50 focus-within:border-fuchsia-500 transition-all min-w-[140px]">
               <Key className="w-4 h-4 text-fuchsia-500" />
               <select 

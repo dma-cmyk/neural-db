@@ -1,5 +1,6 @@
 /**
  * Gemini APIを使用してテキストのエンベディングを取得します。
+ * エンベディングモデルは gemini-embedding-001 に固定します。
  */
 export const getEmbedding = async (text: string, apiKeyToUse: string, retryCount = 0): Promise<number[]> => {
   const delays = [1000, 2000, 4000, 8000, 16000];
@@ -33,7 +34,8 @@ export const getEmbedding = async (text: string, apiKeyToUse: string, retryCount
 export const summarizeFile = async (
   fileData: string, // Base64 strings for binary, text for plain text
   mimeType: string,
-  apiKeyToUse: string
+  apiKeyToUse: string,
+  modelId: string = 'gemini-2.5-flash-lite'
 ): Promise<string> => {
   try {
     const isText = mimeType.startsWith('text/') || mimeType === 'application/json' || mimeType === 'application/javascript';
@@ -56,7 +58,7 @@ export const summarizeFile = async (
           }]
         };
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKeyToUse}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKeyToUse}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -77,9 +79,13 @@ export const summarizeFile = async (
 /**
  * Gemini APIを使用してテキストからタイトルを生成します。
  */
-export const generateTitle = async (text: string, apiKeyToUse: string): Promise<string> => {
+export const generateTitle = async (
+  text: string, 
+  apiKeyToUse: string,
+  modelId: string = 'gemini-2.5-flash-lite'
+): Promise<string> => {
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKeyToUse}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKeyToUse}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
