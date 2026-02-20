@@ -227,10 +227,7 @@ export default function App() {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processFile = (file: File) => {
     const reader = new FileReader();
     const isText = file.type.startsWith('text/') || file.type === 'application/json' || file.type === 'application/javascript';
     
@@ -252,6 +249,23 @@ export default function App() {
       reader.readAsText(file);
     } else {
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].kind === 'file') {
+        const file = items[i].getAsFile();
+        if (file) {
+          processFile(file);
+        }
+      }
     }
   };
 
@@ -542,6 +556,7 @@ export default function App() {
                 placeholder="タイトル..."
                 value={newNoteTitle}
                 onChange={(e) => setNewNoteTitle(e.target.value)}
+                onPaste={handlePaste}
               />
               <textarea
                 autoFocus={!editingNoteId}
@@ -549,6 +564,7 @@ export default function App() {
                 placeholder="データ内容を入力..."
                 value={newNoteText}
                 onChange={(e) => setNewNoteText(e.target.value)}
+                onPaste={handlePaste}
               />
               
               <div className="flex items-center justify-between p-3 bg-zinc-950 border-t border-cyan-900">
@@ -650,7 +666,12 @@ export default function App() {
                     </h3>
                   )}
                   
-                  <NoteContent text={note.text} />
+                  <div className="max-h-64 overflow-hidden relative group/content">
+                    <NoteContent text={note.text} />
+                    {(note.text.split('\n').length > 10 || note.text.length > 500) && (
+                      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-zinc-900 via-zinc-900/80 to-transparent pointer-events-none transition-opacity duration-300 group-hover/content:opacity-40"></div>
+                    )}
+                  </div>
 
                   {note.fileData && (
                     <FilePreview 
@@ -752,6 +773,7 @@ export default function App() {
               placeholder="タイトルを思考中..."
               value={newNoteTitle}
               onChange={(e) => setNewNoteTitle(e.target.value)}
+              onPaste={handlePaste}
             />
             
             <div className="flex-1 relative border-l border-cyan-500/20 pl-6 ml-1">
@@ -761,6 +783,7 @@ export default function App() {
                 placeholder="ここに壮大な思考を記録してください..."
                 value={newNoteText}
                 onChange={(e) => setNewNoteText(e.target.value)}
+                onPaste={handlePaste}
               />
             </div>
 
