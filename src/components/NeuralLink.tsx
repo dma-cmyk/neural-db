@@ -19,7 +19,7 @@ interface NeuralLinkProps {
  */
 export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup, profiles }) => {
   const [mode, setMode] = useState<'home' | 'auth_selection' | 'mnemonic' | 'biometric' | 'profile_list'>(
-    isInitialSetup ? 'mnemonic' : 'home'
+    'home'
   );
   const [mnemonic, setMnemonic] = useState('');
   const [generatedMnemonic, setGeneratedMnemonic] = useState('');
@@ -231,7 +231,7 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
         <span className="text-[0.6rem] font-bold tracking-widest uppercase">戻る</span>
       </div>
 
-      {isInitialSetup || isRegistering ? (
+      {isRegistering ? (
         <div className="space-y-6">
           <div className="bg-cyan-950/20 border border-cyan-500/30 p-4 rounded-sm">
             <p className="text-[0.65rem] text-cyan-400 font-bold mb-4 uppercase tracking-[0.2em]">新規シードフレーズ生成</p>
