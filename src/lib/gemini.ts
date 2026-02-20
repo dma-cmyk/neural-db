@@ -2,9 +2,28 @@
  * Gemini APIを使用してテキストのエンベディングを取得します。
  * エンベディングモデルは gemini-embedding-001 に固定します。
  */
-export const getEmbedding = async (text: string, apiKeyToUse: string, retryCount = 0): Promise<number[]> => {
-  const delays = [1000, 2000, 4000, 8000, 16000];
+const DELAYS = [1000, 2000, 4000, 8000, 16000];
+
+/**
+ * 指数バックオフを用いたリトライ実行ヘルパー
+ */
+const withRetry = async <T>(fn: () => Promise<T>, retryCount = 0): Promise<T> => {
   try {
+    return await fn();
+  } catch (error: any) {
+    if (retryCount < 5 && (error.message.includes('429') || error.message.includes('500') || error.message.includes('503'))) {
+      await new Promise(resolve => setTimeout(resolve, DELAYS[retryCount]));
+      return withRetry(fn, retryCount + 1);
+    }
+    throw error;
+  }
+};
+
+/**
+ * Gemini APIを使用してテキストのエンベディングを取得します。
+ */
+export const getEmbedding = async (text: string, apiKeyToUse: string): Promise<number[]> => {
+  return withRetry(async () => {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${apiKeyToUse}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -19,13 +38,34 @@ export const getEmbedding = async (text: string, apiKeyToUse: string, retryCount
     if (!data.embedding || !data.embedding.values) throw new Error('エンベディングの取得に失敗しました');
     
     return data.embedding.values;
-  } catch (error) {
-    if (retryCount < 5) {
-      await new Promise(resolve => setTimeout(resolve, delays[retryCount]));
-      return getEmbedding(text, apiKeyToUse, retryCount + 1);
-    }
-    throw error;
-  }
+  });
+};
+
+/**
+ * Gemini APIを使用して複数のテキストのエンベディングを一括取得します (Batch API)。
+ */
+export const batchGetEmbeddings = async (texts: string[], apiKeyToUse: string): Promise<number[][]> => {
+  if (texts.length === 0) return [];
+  
+  return withRetry(async () => {
+    const requests = texts.map(text => ({
+      model: "models/gemini-embedding-001",
+      content: { parts: [{ text }] }
+    }));
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents?key=${apiKeyToUse}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests })
+    });
+    
+    if (!response.ok) throw new Error(`Batch API Error: ${response.status}`);
+    
+    const data = await response.json();
+    if (!data.embeddings) throw new Error('一括エンベディングの取得に失敗しました');
+    
+    return data.embeddings.map((e: any) => e.values);
+  });
 };
 
 /**
@@ -37,7 +77,7 @@ export const summarizeFile = async (
   apiKeyToUse: string,
   modelId: string = 'gemini-2.5-flash-lite'
 ): Promise<string> => {
-  try {
+  return withRetry(async () => {
     const isText = mimeType.startsWith('text/') || mimeType === 'application/json' || mimeType === 'application/javascript';
     
     const body = isText 
@@ -69,11 +109,11 @@ export const summarizeFile = async (
     }
 
     const data = await response.json();
+    if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+      throw new Error('要約の生成に失敗しました（コンテンツが空です）');
+    }
     return data.candidates[0].content.parts[0].text;
-  } catch (error) {
-    console.error('Summarization failed:', error);
-    throw error;
-  }
+  });
 };
 
 /**
@@ -84,7 +124,7 @@ export const generateTitle = async (
   apiKeyToUse: string,
   modelId: string = 'gemini-2.5-flash-lite'
 ): Promise<string> => {
-  try {
+  return withRetry(async () => {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKeyToUse}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -97,9 +137,9 @@ export const generateTitle = async (
 
     if (!response.ok) throw new Error(`API Error: ${response.status}`);
     const data = await response.json();
+    if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+      throw new Error('タイトルの生成に失敗しました');
+    }
     return data.candidates[0].content.parts[0].text.trim().replace(/^「|」$/g, '');
-  } catch (error) {
-    console.error('Title generation failed:', error);
-    return "無題のメモ";
-  }
+  });
 };

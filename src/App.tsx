@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Search, Plus, Loader2, Trash2, X, BrainCircuit, Info, Key, Download, Upload, Edit2, Terminal, Maximize2, Minimize2, Zap, RefreshCw } from 'lucide-react';
 import { calculateCosineSimilarity } from './lib/utils';
-import { getEmbedding, summarizeFile, generateTitle } from './lib/gemini';
+import { getEmbedding, summarizeFile, generateTitle, batchGetEmbeddings } from './lib/gemini';
 import { NoteContent } from './components/NoteContent';
 import { FilePreview } from './components/FilePreview';
 import { File as FileIcon, Paperclip, ChevronDown, Check, Settings } from 'lucide-react';
@@ -251,35 +251,67 @@ export default function App() {
     }
   };
 
-  // 一括ベクトル化
+  // 一括ベクトル化 (Batch Processing)
   const handleVectorizeAll = async () => {
     if (!activeApiKey) return;
     const unvectorized = notes.filter(n => !n.vector);
     if (unvectorized.length === 0) return;
 
     setIsAdding(true);
+    let successCount = 0;
+    let failCount = 0;
+    
     try {
-      for (const note of unvectorized) {
-        let currentText = note.text;
-        let currentSummary = note.summary;
-        
+      // 1. ファイル要約が必要なものを並列処理（Promise.all）
+      const updatedNotesMap = new Map<string, Partial<Note>>();
+      
+      const summaryPromises = unvectorized.map(async (note) => {
         if (note.fileData && !note.summary) {
           try {
-            currentSummary = await summarizeFile(note.fileData, note.fileType || '', activeApiKey, selectedModelId);
-            currentText = currentSummary;
+            const summary = await summarizeFile(note.fileData, note.fileType || '', activeApiKey, selectedModelId);
+            updatedNotesMap.set(note.id, { summary, text: summary });
+            return { id: note.id, text: summary, title: note.title };
           } catch (e) {
-            console.error(`Failed to summarize file for note ${note.id}:`, e);
-            continue; // 失敗した場合は次へ
+            console.error(`Failed to summarize: ${note.id}`, e);
+            failCount++;
+            return null;
           }
         }
+        return { id: note.id, text: note.text, title: note.title };
+      });
 
-        const textToEmbed = note.title ? `${note.title}\n${currentText}` : currentText;
-        const vector = await getEmbedding(textToEmbed, activeApiKey);
-        setNotes(prev => prev.map(n => n.id === note.id ? { ...n, vector, text: currentText, summary: currentSummary } : n));
+      const processedItems = (await Promise.all(summaryPromises)).filter(item => item !== null);
+
+      if (processedItems.length === 0) {
+        if (failCount > 0) setError(`処理に失敗しました。詳細を確認してください。`);
+        return;
       }
-    } catch (err) {
-      console.error('Batch vectorization failed:', err);
-      setError('一括処理中にエラーが発生しました。');
+
+      // 2. Batch Embedding APIで一括ベクトル化
+      const textsToEmbed = processedItems.map(item => item?.title ? `${item.title}\n${item.text}` : item?.text || '');
+      const embeddings = await batchGetEmbeddings(textsToEmbed, activeApiKey);
+
+      // 3. stateを一括更新
+      setNotes(prev => {
+        let newNotes = [...prev];
+        processedItems.forEach((item, index) => {
+          if (!item) return;
+          const vector = embeddings[index];
+          const extra = updatedNotesMap.get(item.id) || {};
+          newNotes = newNotes.map(n => n.id === item.id ? { ...n, ...extra, vector } : n);
+          successCount++;
+        });
+        return newNotes;
+      });
+
+      if (failCount === 0) {
+        setError(`${successCount}件のメモを同期しました。`);
+      } else {
+        setError(`${successCount}件成功、${failCount}件失敗しました。ネットワーク状況を確認してください。`);
+      }
+    } catch (err: any) {
+      console.error('Batch sync failed:', err);
+      setError('同期に致命的なエラーが発生しました: ' + err.message);
     } finally {
       setIsAdding(false);
     }
