@@ -41,6 +41,7 @@ interface GeminiModel {
 }
 
 const AVAILABLE_MODELS: GeminiModel[] = [
+  { id: 'gemini-2.0-flash-lite', name: '2.0 Flash Lite', description: '高速・安定' },
   { id: 'gemini-2.5-flash-lite', name: '2.5 Flash Lite', description: '高速・軽量 (デフォルト)' },
   { id: 'gemini-3-flash-preview', name: '3 Flash Preview', description: '次世代高速モデル' },
   { id: 'gemini-2.5-pro', name: '2.5 Pro', description: '高性能・多目的' },
