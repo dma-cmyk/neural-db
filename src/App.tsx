@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Search, Plus, Loader2, Trash2, X, BrainCircuit, Info, Key, Download, Upload, 
-  Edit2, Terminal, Maximize2, Minimize2, Zap, RefreshCw, Menu, 
+  Edit2, Terminal, Maximize2, Minimize2, Zap, RefreshCw, Menu, LogOut,
   File as FileIcon, Paperclip, ChevronDown, Check, Settings, ExternalLink, Unlink, 
   Tag as TagIcon, ShieldCheck 
 } from 'lucide-react';
@@ -13,7 +13,7 @@ import { TagCloud } from './components/TagCloud';
 import { LinkPreview } from './components/LinkPreview';
 import { extractUrls, fetchLinkMetadata, LinkMetadata } from './lib/linkMetadata';
 import { NeuralLink } from './components/NeuralLink';
-import { deriveKeyFromMnemonic, encryptData, decryptData } from './lib/encryption';
+import { deriveKeyFromMnemonic, encryptData, decryptData, deriveVaultId } from './lib/encryption';
 
 const defaultApiKey = ""; // 実行環境から自動的に提供されます
 
@@ -96,6 +96,7 @@ export default function App() {
   
   // セキュリティ状態
   const [masterKey, setMasterKey] = useState<CryptoKey | null>(null);
+  const [vaultId, setVaultId] = useState<string | null>(null);
   const [isEncrypted, setIsEncrypted] = useState<boolean>(() => {
     return localStorage.getItem('neural_db_encrypted') === 'true';
   });
@@ -146,8 +147,10 @@ export default function App() {
 
   // 認証成功時の処理
   useEffect(() => {
-    if (masterKey && isEncrypted) {
-      const savedNotes = localStorage.getItem('neural_db_notes');
+    if (masterKey && isEncrypted && vaultId) {
+      const vaultKey = `neural_db_vault_${vaultId}`;
+      const savedNotes = localStorage.getItem(vaultKey);
+      
       if (savedNotes) {
         decryptData(savedNotes, masterKey)
           .then(decrypted => {
@@ -158,13 +161,15 @@ export default function App() {
             console.error('復号に失敗しました:', err);
             setError('認証に失敗しました。キーが正しくない可能性があります。');
             setMasterKey(null);
+            setVaultId(null);
           });
       } else {
-        // 新規ユーザー：保存されたメモがない場合はそのままロック解除
+        // 新規ユーザーまたは新しいVault：保存されたメモがない場合は空のリストをセットして解除
+        setNotes([]);
         setIsLocked(false);
       }
     }
-  }, [masterKey, isEncrypted]);
+  }, [masterKey, isEncrypted, vaultId]);
 
   useEffect(() => {
     localStorage.setItem('neural_db_api_keys', JSON.stringify(apiKeys));
@@ -175,18 +180,19 @@ export default function App() {
 
     const saveNotes = async () => {
       const notesJson = JSON.stringify(notes);
-      if (isEncrypted && masterKey) {
+      if (isEncrypted && masterKey && vaultId) {
         const encrypted = await encryptData(notesJson, masterKey);
-        localStorage.setItem('neural_db_notes', encrypted);
+        const vaultKey = `neural_db_vault_${vaultId}`;
+        localStorage.setItem(vaultKey, encrypted);
         localStorage.setItem('neural_db_encrypted', 'true');
-      } else {
+      } else if (!isEncrypted) {
         localStorage.setItem('neural_db_notes', notesJson);
         localStorage.setItem('neural_db_encrypted', 'false');
       }
     };
     
     saveNotes();
-  }, [notes, isEncrypted, masterKey, isLocked]);
+  }, [notes, isEncrypted, masterKey, isLocked, vaultId]);
 
   const activeApiKey = useMemo(() => {
     const selected = apiKeys.find(ak => ak.id === selectedApiKeyId);
@@ -610,9 +616,10 @@ export default function App() {
   const handleUnlock = async (mnemonic: string) => {
     try {
       const key = await deriveKeyFromMnemonic(mnemonic);
+      const id = await deriveVaultId(mnemonic);
       setMasterKey(key);
+      setVaultId(id);
       if (!isEncrypted) {
-        // 初回セットアップ時は、この瞬間に暗号化を有効化する
         setIsEncrypted(true);
         localStorage.setItem('neural_db_encrypted', 'true');
       }
@@ -620,6 +627,13 @@ export default function App() {
       console.error(e);
       alert('無効なキーです');
     }
+  };
+
+  const handleLogout = () => {
+    setMasterKey(null);
+    setVaultId(null);
+    setNotes([]);
+    setIsLocked(true);
   };
 
   const handleToggleEncryption = () => {
@@ -777,6 +791,16 @@ export default function App() {
           `}>
             <div className="flex items-center gap-1 border-b md:border-b-0 md:border-r border-cyan-900/50 pb-3 md:pb-0 md:pr-3 md:mr-1 justify-between md:justify-start">
               <div className="flex items-center gap-1">
+                {masterKey && (
+                  <button
+                    onClick={handleLogout}
+                    className="p-2 text-zinc-600 hover:text-red-400 hover:bg-red-950/20 transition-all rounded-sm flex items-center gap-2 mr-2 border border-transparent hover:border-red-900/50"
+                    title="Switch User / Logout"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span className="text-[0.6rem] font-bold uppercase tracking-wider hidden sm:inline">Logout</span>
+                  </button>
+                )}
                 <button onClick={handleExport} className="p-2 text-cyan-600 hover:text-cyan-300 hover:bg-cyan-950/50 transition-colors">
                   <Download className="w-5 h-5" />
                 </button>

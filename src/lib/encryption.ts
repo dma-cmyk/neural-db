@@ -35,6 +35,19 @@ export const deriveKeyFromMnemonic = async (mnemonic: string): Promise<CryptoKey
 };
 
 /**
+ * シードフレーズから一意の Vault ID を派生させます（SHA-256）。
+ * これにより、ストレージをユーザーごとに分離できます。
+ */
+export const deriveVaultId = async (mnemonic: string): Promise<string> => {
+  const normalizedMnemonic = mnemonic.trim().toLowerCase().replace(/\s+/g, ' ');
+  const encoder = new TextEncoder();
+  const data = encoder.encode(normalizedMnemonic);
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16); // 最初の16文字を使用
+};
+
+/**
  * データを暗号化します。
  * 返り値は base64(iv + ciphertext) です。
  */
