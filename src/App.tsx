@@ -143,10 +143,6 @@ export default function App() {
       return;
     }
     
-    if (!activeApiKey) {
-      setError('認証エラー: APIキーが設定されていません。');
-      return;
-    }
 
     setIsAdding(true);
     setError('');
@@ -443,7 +439,7 @@ export default function App() {
       if (typeof result !== 'string') return;
       try {
         const importedData = JSON.parse(result);
-        if (Array.isArray(importedData) && importedData.every((n: any) => n.id && n.text && n.vector)) {
+        if (Array.isArray(importedData) && importedData.every((n: any) => n.id && n.text)) {
           setNotes(prev => {
             const existingIds = new Set(prev.map(n => n.id));
             const newNotes = importedData.filter((n: any) => !existingIds.has(n.id));
