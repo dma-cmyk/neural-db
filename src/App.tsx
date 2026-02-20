@@ -144,7 +144,7 @@ export default function App() {
     }
   }, []);
 
-  // 認証成功時の復号処理
+  // 認証成功時の処理
   useEffect(() => {
     if (masterKey && isEncrypted) {
       const savedNotes = localStorage.getItem('neural_db_notes');
@@ -159,6 +159,9 @@ export default function App() {
             setError('認証に失敗しました。キーが正しくない可能性があります。');
             setMasterKey(null);
           });
+      } else {
+        // 新規ユーザー：保存されたメモがない場合はそのままロック解除
+        setIsLocked(false);
       }
     }
   }, [masterKey, isEncrypted]);

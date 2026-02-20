@@ -12,12 +12,15 @@ export const generateMnemonic = (): string => {
  * シードフレーズからCryptoKeyを派生させます。
  */
 export const deriveKeyFromMnemonic = async (mnemonic: string): Promise<CryptoKey> => {
-  if (!bip39.validateMnemonic(mnemonic)) {
+  // 文字列のトリムと、連続する空白の正規化
+  const normalizedMnemonic = mnemonic.trim().toLowerCase().replace(/\s+/g, ' ');
+
+  if (!bip39.validateMnemonic(normalizedMnemonic)) {
     throw new Error('無効なシードフレーズです');
   }
 
   // シードフレーズからシード（バイナリ）を生成
-  const seed = await bip39.mnemonicToSeed(mnemonic);
+  const seed = await bip39.mnemonicToSeed(normalizedMnemonic);
   
   // シードの最初の32バイトをAES鍵の素材として使用
   const keyMaterial = seed.slice(0, 32);
