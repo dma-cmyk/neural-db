@@ -636,6 +636,26 @@ export default function App() {
     setIsLocked(true);
   };
 
+  const handleDeleteVault = () => {
+    if (!vaultId) return;
+    
+    const confirm1 = window.confirm('⚠ 警告: このユーザーの全データを永久に削除しますか？\nこの操作は取り消せません。');
+    if (!confirm1) return;
+    
+    const confirm2 = window.prompt('完全に削除するには "DELETE" と入力してください:');
+    if (confirm2 !== 'DELETE') return;
+
+    const vaultKey = `neural_db_vault_${vaultId}`;
+    localStorage.removeItem(vaultKey);
+    
+    // 状態リセット
+    setMasterKey(null);
+    setVaultId(null);
+    setNotes([]);
+    setIsLocked(true);
+    setError('ユーザーデータが完全に消去されました。');
+  };
+
   const handleToggleEncryption = () => {
     if (!masterKey && isEncrypted) return;
     setIsEncrypted(!isEncrypted);
@@ -799,6 +819,16 @@ export default function App() {
                   >
                     <LogOut className="w-4 h-4" />
                     <span className="text-[0.6rem] font-bold uppercase tracking-wider hidden sm:inline">Logout</span>
+                  </button>
+                )}
+                {masterKey && (
+                  <button
+                    onClick={handleDeleteVault}
+                    className="p-2 text-zinc-800 hover:text-red-600 hover:bg-red-950/20 transition-all rounded-sm flex items-center gap-2 mr-2 border border-transparent hover:border-red-900/50"
+                    title="Delete This User Vault"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span className="text-[0.6rem] font-bold uppercase tracking-wider hidden sm:inline text-zinc-900">Delete</span>
                   </button>
                 )}
                 <button onClick={handleExport} className="p-2 text-cyan-600 hover:text-cyan-300 hover:bg-cyan-950/50 transition-colors">
