@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Search, Plus, Loader2, Trash2, X, BrainCircuit, Info, Key, Download, Upload, 
-  Edit2, Terminal, Maximize2, Minimize2, Zap, RefreshCw, Menu, LogOut,
+  Edit2, Terminal, Maximize2, Minimize2, Zap, RefreshCw, Menu, LogOut, Fingerprint,
   File as FileIcon, Paperclip, ChevronDown, Check, Settings, ExternalLink, Unlink, 
   Tag as TagIcon, ShieldCheck 
 } from 'lucide-react';
@@ -13,7 +13,7 @@ import { TagCloud } from './components/TagCloud';
 import { LinkPreview } from './components/LinkPreview';
 import { extractUrls, fetchLinkMetadata, LinkMetadata } from './lib/linkMetadata';
 import { NeuralLink } from './components/NeuralLink';
-import { deriveKeyFromMnemonic, encryptData, decryptData, deriveVaultId } from './lib/encryption';
+import { deriveKeyFromMnemonic, encryptData, decryptData, deriveVaultId, registerBiometric, isBiometricAvailable } from './lib/encryption';
 
 const defaultApiKey = ""; // 実行環境から自動的に提供されます
 
@@ -103,6 +103,7 @@ export default function App() {
   // セキュリティ状態
   const [masterKey, setMasterKey] = useState<CryptoKey | null>(null);
   const [vaultId, setVaultId] = useState<string | null>(null);
+  const [masterMnemonic, setMasterMnemonic] = useState<string | null>(null);
   const [isEncrypted, setIsEncrypted] = useState<boolean>(() => {
     return localStorage.getItem('neural_db_encrypted') === 'true';
   });
@@ -186,6 +187,7 @@ export default function App() {
             setError('認証に失敗しました。キーが正しくない可能性があります。');
             setMasterKey(null);
             setVaultId(null);
+            setMasterMnemonic(null);
           });
       } else {
         // 新規ユーザーまたは新しいVault：保存されたメモがない場合は空のリストをセットして解除
@@ -643,6 +645,7 @@ export default function App() {
       const id = await deriveVaultId(mnemonic);
       setMasterKey(key);
       setVaultId(id);
+      setMasterMnemonic(mnemonic);
       if (!isEncrypted) {
         setIsEncrypted(true);
         localStorage.setItem('neural_db_encrypted', 'true');
@@ -690,6 +693,28 @@ export default function App() {
   const handleToggleEncryption = () => {
     if (!masterKey && isEncrypted) return;
     setIsEncrypted(!isEncrypted);
+  };
+
+  const handleRegisterBiometric = async () => {
+    if (!masterMnemonic || !vaultId) {
+      setError('生体認証を登録するには、まずシードフレーズでログインしてください。');
+      return;
+    }
+
+    try {
+      await registerBiometric(masterMnemonic, vaultId);
+      alert('生体認証を登録しました。次回からこのデバイスで生体認証が利用可能です。');
+      
+      // プロファイルを更新して、生体認証が有効であることを示す（任意）
+      setProfiles(prev => {
+        const updated = prev.map(p => p.vaultId === vaultId ? { ...p, hasBiometric: true } : p);
+        localStorage.setItem('neural_db_profiles', JSON.stringify(updated));
+        return updated;
+      });
+    } catch (err: any) {
+      console.error('Biometric registration failed:', err);
+      setError('生体認証の登録に失敗しました: ' + err.message);
+    }
   };
 
   const handleImportNotes = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -958,8 +983,8 @@ export default function App() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-zinc-900 border border-fuchsia-500 shadow-[0_0_30px_rgba(217,70,239,0.2)] w-full max-w-md overflow-hidden">
             <div className="bg-fuchsia-600 px-4 py-2 flex items-center justify-between">
-              <h3 className="text-white text-xs font-bold tracking-widest flex items-center gap-2">
-                <Key className="w-4 h-4" /> APIキー管理ターミナル
+               <h3 className="text-white text-xs font-bold tracking-widest flex items-center gap-2">
+                <Settings className="w-4 h-4" /> システム設定ターミナル
               </h3>
               <button onClick={() => setIsApiKeyModalOpen(false)} className="text-white hover:text-fuchsia-200">
                 <X className="w-5 h-5" />
@@ -993,6 +1018,28 @@ export default function App() {
                         追加
                       </button>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 生体認証セクション */}
+              <div className="space-y-4 mb-8 pt-4 border-t border-fuchsia-900/30">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[0.6rem] text-fuchsia-500 tracking-widest mb-1">セキュリティ設定</span>
+                  <div className="flex items-center justify-between p-3 bg-black/50 border border-fuchsia-900/20 text-left">
+                    <div className="flex items-center gap-3">
+                      <Fingerprint className="w-5 h-5 text-cyan-500" />
+                      <div className="flex flex-col">
+                        <span className="text-xs text-cyan-100 font-bold">生体認証 (WebAuthn)</span>
+                        <span className="text-[0.55rem] text-zinc-600">このデバイスでログインを簡略化</span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={handleRegisterBiometric}
+                      className="px-3 py-1.5 bg-cyan-600/20 border border-cyan-500 text-cyan-400 text-[0.6rem] font-bold hover:bg-cyan-500 hover:text-cyan-950 transition-all uppercase tracking-widest"
+                    >
+                      登録
+                    </button>
                   </div>
                 </div>
               </div>

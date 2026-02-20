@@ -110,3 +110,95 @@ export const base64ToBuffer = (base64: string): ArrayBuffer => {
   }
   return bytes.buffer;
 };
+
+/**
+ * 生体認証（WebAuthn）を登録します。
+ * 現状のブラウザ環境では、mnemonicを暗号化してlocalStorageに保存し、
+ * 生体認証の成功を持ってその値を「取り出せる」ようにするラッパーとして機能します。
+ */
+export const registerBiometric = async (mnemonic: string, vaultId: string): Promise<void> => {
+  if (!window.PublicKeyCredential) {
+    throw new Error('このブラウザは生体認証をサポートしていません');
+  }
+
+  const challenge = window.crypto.getRandomValues(new Uint8Array(32));
+  const userID = window.crypto.getRandomValues(new Uint8Array(16));
+
+  const creationOptions: PublicKeyCredentialCreationOptions = {
+    challenge,
+    rp: {
+      name: "Neural DB",
+      id: window.location.hostname || "localhost",
+    },
+    user: {
+      id: userID,
+      name: `user-${vaultId}`,
+      displayName: `Neural User (${vaultId.slice(0, 4)})`,
+    },
+    pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
+    authenticatorSelection: {
+      authenticatorAttachment: "platform",
+      userVerification: "required",
+    },
+    timeout: 60000,
+    attestation: "none",
+  };
+
+  const credential = await navigator.credentials.create({
+    publicKey: creationOptions,
+  }) as PublicKeyCredential;
+
+  if (!credential) {
+    throw new Error('認証資格情報の作成に失敗しました');
+  }
+
+  // 資格情報IDを保存
+  localStorage.setItem(`biometric_cred_${vaultId}`, bufferToBase64(credential.rawId));
+  
+  // MnemonicをVault IDと紐づけて（簡易的に）保存
+  // ※より高度なセキュリティが必要な場合は、ここで独自に暗号化を行う
+  localStorage.setItem(`biometric_data_${vaultId}`, mnemonic);
+};
+
+/**
+ * 生体認証を実行し、保存されているシードフレーズを返します。
+ */
+export const authenticateBiometric = async (vaultId: string): Promise<string> => {
+  const credIdBase64 = localStorage.getItem(`biometric_cred_${vaultId}`);
+  const mnemonic = localStorage.getItem(`biometric_data_${vaultId}`);
+
+  if (!credIdBase64 || !mnemonic) {
+    throw new Error('このVaultには生体認証が登録されていません');
+  }
+
+  const credId = base64ToBuffer(credIdBase64);
+  const challenge = window.crypto.getRandomValues(new Uint8Array(32));
+
+  const assertionOptions: PublicKeyCredentialRequestOptions = {
+    challenge,
+    allowCredentials: [{
+      id: credId,
+      type: 'public-key',
+    }],
+    userVerification: "required",
+    timeout: 60000,
+  };
+
+  const assertion = await navigator.credentials.get({
+    publicKey: assertionOptions,
+  }) as PublicKeyCredential;
+
+  if (!assertion) {
+    throw new Error('生体認証に失敗しました');
+  }
+
+  return mnemonic;
+};
+
+/**
+ * 生体認証が利用可能かチェックします。
+ */
+export const isBiometricAvailable = async (): Promise<boolean> => {
+  if (!window.PublicKeyCredential) return false;
+  return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+};

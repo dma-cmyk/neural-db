@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Fingerprint, Clipboard, ShieldAlert, Key, Zap, Check, X, ShieldCheck, Download, Camera, Plus, ChevronLeft } from 'lucide-react';
-import { generateMnemonic } from '../lib/encryption';
+import { generateMnemonic, authenticateBiometric, isBiometricAvailable } from '../lib/encryption';
 
 interface UserProfile {
   vaultId: string;
@@ -24,8 +24,15 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
   const [mnemonic, setMnemonic] = useState('');
   const [generatedMnemonic, setGeneratedMnemonic] = useState('');
   const [error, setError] = useState('');
-  const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(() => {
+    // デフォルトで最後にアクティブだったプロファイルを選択
+    if (profiles.length > 0) {
+      return [...profiles].sort((a, b) => new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime())[0];
+    }
+    return null;
+  });
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   // セットアップ時のシード生成
   useEffect(() => {
@@ -33,6 +40,35 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
       setGeneratedMnemonic(generateMnemonic());
     }
   }, [isInitialSetup, generatedMnemonic]);
+
+  // モードが生体認証になったら即座に開始
+  useEffect(() => {
+    if (mode === 'biometric' && selectedProfile && !isVerifying) {
+      handleBiometricAuth();
+    }
+  }, [mode, selectedProfile]);
+
+  const handleBiometricAuth = async () => {
+    if (!selectedProfile) {
+      setError('認証対象のユーザーを選択してください');
+      setMode('profile_list');
+      return;
+    }
+
+    setIsVerifying(true);
+    setError('');
+
+    try {
+      const recoveredMnemonic = await authenticateBiometric(selectedProfile.vaultId);
+      onUnlock(recoveredMnemonic);
+    } catch (err: any) {
+      console.error('Biometric auth failed:', err);
+      // ユーザーによるキャンセルなどはエラーとして表示するが、モードは維持する
+      setError(err.message || '認証に失敗しました');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   const handleMnemonicSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -279,6 +315,21 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
         <p className="text-[0.6rem] text-cyan-700 max-w-xs mx-auto leading-relaxed">
           デバイスのセンサーに指を置くか、顔認証を行ってください。
         </p>
+        
+        {error && (
+          <p className="text-red-500 text-[0.6rem] font-bold animate-pulse uppercase mt-2">
+            Error: {error}
+          </p>
+        )}
+        
+        {error && (
+          <button 
+            onClick={handleBiometricAuth}
+            className="mt-4 px-6 py-2 bg-cyan-900/30 border border-cyan-500 text-cyan-400 text-[0.6rem] font-bold uppercase tracking-widest hover:bg-cyan-500/20 transition-all"
+          >
+            再試行
+          </button>
+        )}
         
         <div className="flex justify-center gap-1">
           {[1,2,3,4,5].map(i => (
