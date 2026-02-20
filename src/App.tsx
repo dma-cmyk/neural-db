@@ -207,11 +207,10 @@ export default function App() {
   }, [masterKey, isEncrypted, vaultId]);
 
   useEffect(() => {
-    if (vaultId) {
-      const apiKeysKey = `neural_db_api_keys_${vaultId}`;
-      localStorage.setItem(apiKeysKey, JSON.stringify(apiKeys));
-    }
-  }, [apiKeys, vaultId]);
+    if (isLocked || !vaultId) return; // ロック中またはVault未指定時は保存しない
+    const apiKeysKey = `neural_db_api_keys_${vaultId}`;
+    localStorage.setItem(apiKeysKey, JSON.stringify(apiKeys));
+  }, [apiKeys, vaultId, isLocked]);
 
   useEffect(() => {
     if (isLocked) return; // ロック中は上書き保存しない
