@@ -68,19 +68,34 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resourceInputRef = useRef<HTMLInputElement>(null);
 
-  // APIキーの初期化と保存
+  // APIキーとメモの初期化・保存
   useEffect(() => {
+    // APIキーのロード
     const savedKeys = localStorage.getItem('neural_db_api_keys');
     if (savedKeys) {
       const parsed = JSON.parse(savedKeys);
       setApiKeys(parsed);
       if (parsed.length > 0) setSelectedApiKeyId(parsed[0].id);
     }
+
+    // メモのロード
+    const savedNotes = localStorage.getItem('neural_db_notes');
+    if (savedNotes) {
+      try {
+        setNotes(JSON.parse(savedNotes));
+      } catch (e) {
+        console.error('Failed to load notes:', e);
+      }
+    }
   }, []);
 
   useEffect(() => {
     localStorage.setItem('neural_db_api_keys', JSON.stringify(apiKeys));
   }, [apiKeys]);
+
+  useEffect(() => {
+    localStorage.setItem('neural_db_notes', JSON.stringify(notes));
+  }, [notes]);
 
   const activeApiKey = useMemo(() => {
     const selected = apiKeys.find(ak => ak.id === selectedApiKeyId);
