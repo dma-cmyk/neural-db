@@ -116,16 +116,8 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resourceInputRef = useRef<HTMLInputElement>(null);
 
-  // APIキーとメモの初期化・保存
+  // メモの初期化・保存
   useEffect(() => {
-    // APIキーのロード
-    const savedKeys = localStorage.getItem('neural_db_api_keys');
-    if (savedKeys) {
-      const parsed = JSON.parse(savedKeys);
-      setApiKeys(parsed);
-      if (parsed.length > 0) setSelectedApiKeyId(parsed[0].id);
-    }
-
     // メモのロード
     const savedNotes = localStorage.getItem('neural_db_notes');
     const encryptedFlag = localStorage.getItem('neural_db_encrypted') === 'true';
@@ -183,6 +175,18 @@ export default function App() {
               localStorage.setItem('neural_db_profiles', JSON.stringify(updated));
               return updated;
             });
+
+            // APIキーのロード（ユーザー別）
+            const apiKeysKey = `neural_db_api_keys_${vaultId}`;
+            const savedKeys = localStorage.getItem(apiKeysKey);
+            if (savedKeys) {
+              const parsed = JSON.parse(savedKeys);
+              setApiKeys(parsed);
+              if (parsed.length > 0) setSelectedApiKeyId(parsed[0].id);
+            } else {
+              setApiKeys([]);
+              setSelectedApiKeyId(null);
+            }
           })
           .catch(err => {
             console.error('復号に失敗しました:', err);
@@ -190,18 +194,24 @@ export default function App() {
             setMasterKey(null);
             setVaultId(null);
             setMasterMnemonic(null);
+            setApiKeys([]);
           });
       } else {
         // 新規ユーザーまたは新しいVault：保存されたメモがない場合は空のリストをセットして解除
         setNotes([]);
+        setApiKeys([]);
+        setSelectedApiKeyId(null);
         setIsLocked(false);
       }
     }
   }, [masterKey, isEncrypted, vaultId]);
 
   useEffect(() => {
-    localStorage.setItem('neural_db_api_keys', JSON.stringify(apiKeys));
-  }, [apiKeys]);
+    if (vaultId) {
+      const apiKeysKey = `neural_db_api_keys_${vaultId}`;
+      localStorage.setItem(apiKeysKey, JSON.stringify(apiKeys));
+    }
+  }, [apiKeys, vaultId]);
 
   useEffect(() => {
     if (isLocked) return; // ロック中は上書き保存しない
@@ -662,6 +672,7 @@ export default function App() {
   };
 
   const handleUnlock = async (mnemonic: string) => {
+    setError('');
     try {
       const key = await deriveKeyFromMnemonic(mnemonic);
       const id = await deriveVaultId(mnemonic);
@@ -682,7 +693,10 @@ export default function App() {
     setMasterKey(null);
     setVaultId(null);
     setNotes([]);
+    setApiKeys([]);
+    setSelectedApiKeyId(null);
     setIsLocked(true);
+    setError('');
   };
 
   const handleDeleteVault = () => {
@@ -695,7 +709,9 @@ export default function App() {
     if (confirm2 !== 'DELETE') return;
 
     const vaultKey = `neural_db_vault_${vaultId}`;
+    const apiKeysKey = `neural_db_api_keys_${vaultId}`;
     localStorage.removeItem(vaultKey);
+    localStorage.removeItem(apiKeysKey);
     
     // プロファイルを削除
     setProfiles(prev => {
@@ -708,6 +724,8 @@ export default function App() {
     setMasterKey(null);
     setVaultId(null);
     setNotes([]);
+    setApiKeys([]);
+    setSelectedApiKeyId(null);
     setIsLocked(true);
     setError('ユーザーデータが完全に消去されました。');
   };
