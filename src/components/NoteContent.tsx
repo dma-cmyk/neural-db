@@ -2,20 +2,23 @@ import React from 'react';
 
 interface NoteContentProps {
   text: string;
+  showLineNumbers?: boolean;
 }
 
 /**
- * メモの内容を行番号付きで表示するコンポーネントです。
+ * メモの内容を表示するコンポーネントです。
  */
-export const NoteContent: React.FC<NoteContentProps> = ({ text }) => {
+export const NoteContent: React.FC<NoteContentProps> = ({ text, showLineNumbers = false }) => {
   const lines = text.split('\n');
   return (
-    <div className="text-sm leading-relaxed mt-2 mb-4 font-mono">
+    <div className={`text-sm leading-relaxed mt-2 mb-4 font-mono ${showLineNumbers ? '' : 'pl-1'}`}>
       {lines.map((line, index) => (
         <div key={index} className="flex group/line">
-          <span className="text-cyan-800 w-8 flex-shrink-0 text-right pr-3 select-none text-[0.65rem] pt-[0.25rem] opacity-50 group-hover/line:opacity-100 group-hover/line:text-cyan-400 transition-colors">
-            {String(index + 1).padStart(2, '0')}
-          </span>
+          {showLineNumbers && (
+            <span className="text-cyan-800 w-8 flex-shrink-0 text-right pr-3 select-none text-[0.65rem] pt-[0.25rem] opacity-50 group-hover/line:opacity-100 group-hover/line:text-cyan-400 transition-colors">
+              {String(index + 1).padStart(2, '0')}
+            </span>
+          )}
           <span className="whitespace-pre-wrap break-words break-all flex-1 text-cyan-50">
             {line === '' ? '\u00A0' : line.split(/(https?:\/\/[^\s$.?#].[^\s]*)/g).map((part, i) => {
               if (part.match(/https?:\/\/[^\s$.?#].[^\s]*/)) {

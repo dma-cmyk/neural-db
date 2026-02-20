@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Search, Plus, Loader2, Trash2, X, BrainCircuit, Info, Key, Download, Upload, Edit2, Terminal, Maximize2, Minimize2, Zap, RefreshCw } from 'lucide-react';
+import { Search, Plus, Loader2, Trash2, X, BrainCircuit, Info, Key, Download, Upload, Edit2, Terminal, Maximize2, Minimize2, Zap, RefreshCw, Menu } from 'lucide-react';
 import { calculateCosineSimilarity } from './lib/utils';
 import { getEmbedding, summarizeFile, generateTitle, batchGetEmbeddings } from './lib/gemini';
 import { NoteContent } from './components/NoteContent';
@@ -83,6 +83,7 @@ export default function App() {
   const [isInputExpanded, setIsInputExpanded] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [isFocusMode, setIsFocusMode] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const inputRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -559,108 +560,138 @@ export default function App() {
     <div className="min-h-screen bg-zinc-950 text-cyan-400 font-mono selection:bg-fuchsia-500 selection:text-white">
       
       {/* ーーー ヘッダー ーーー */}
-      <header className="sticky top-0 z-20 bg-zinc-950/80 backdrop-blur-md border-b border-cyan-500/30 px-4 py-3 flex items-center justify-between gap-4 shadow-[0_4px_20px_rgba(6,182,212,0.15)]">
-        <div className="flex items-center gap-3 min-w-max">
-          <div className="bg-zinc-900 border border-fuchsia-500 p-1.5 shadow-[0_0_10px_rgba(217,70,239,0.3)]">
-            <Terminal className="w-6 h-6 text-fuchsia-400" />
-          </div>
-          <div className="flex flex-col">
-            <h1 className="text-xl font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500 hidden md:block leading-none">
-              NEURAL_DB_v1.0
-            </h1>
-            {!activeApiKey && (
-              <span className="text-[0.5rem] text-zinc-500 tracking-[0.3em] font-bold uppercase mt-1 hidden md:block">Offline_Local_Mode</span>
-            )}
-          </div>
-        </div>
-
-        {/* 検索バー */}
-        <div className="flex-1 max-w-2xl">
-          <div className="relative flex items-center w-full bg-zinc-900 border border-cyan-900/50 focus-within:border-cyan-400 focus-within:shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all">
-            <button onClick={handleSearch} disabled={isSearching} className="p-3 text-cyan-600 hover:text-cyan-300">
-              {isSearching ? <Loader2 className="w-5 h-5 animate-spin text-fuchsia-500" /> : <Search className="w-5 h-5" />}
-            </button>
-            <input
-              type="text"
-              className="w-full bg-transparent border-none focus:ring-0 py-3 pr-4 text-sm placeholder-cyan-800 outline-none text-cyan-100"
-              placeholder="検索クエリ > 意味・文脈でスキャン..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            />
-            {searchQuery && (
-              <button onClick={() => { setSearchQuery(''); setSearchVector(null); }} className="p-3 text-fuchsia-500 hover:text-fuchsia-300">
-                <X className="w-5 h-5" />
-              </button>
-            )}
-            {/* スキャンライン装飾 */}
-            <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent"></div>
-          </div>
-        </div>
-        
-        {/* 管理メニュー & APIキー */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="hidden sm:flex items-center gap-1 border-r border-cyan-900/50 pr-3 mr-1">
-            <button onClick={handleExport} title="データ出力" className="p-2 text-cyan-600 hover:text-cyan-300 hover:bg-cyan-950/50 transition-colors">
-              <Download className="w-5 h-5" />
-            </button>
-            <label title="データ読込" className="p-2 text-cyan-600 hover:text-cyan-300 hover:bg-cyan-950/50 transition-colors cursor-pointer">
-              <Upload className="w-5 h-5" />
-              <input type="file" accept=".json" className="hidden" ref={fileInputRef} onChange={handleImport} />
-            </label>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 bg-zinc-900 px-3 py-2 border border-cyan-900/50 focus-within:border-cyan-400 transition-all min-w-[150px]">
-              <BrainCircuit className={`w-4 h-4 ${AVAILABLE_MODELS.find(m => m.id === selectedModelId)?.isPaid ? 'text-amber-400' : 'text-cyan-500'}`} />
-              <select 
-                className="bg-transparent border-none text-[0.65rem] focus:ring-0 p-0 outline-none text-cyan-100 flex-1 appearance-none cursor-pointer font-bold"
-                value={selectedModelId}
-                onChange={(e) => setSelectedModelId(e.target.value)}
-              >
-                {AVAILABLE_MODELS.map(model => (
-                  <option key={model.id} value={model.id} className="bg-zinc-900">
-                    {model.name} {model.isPaid ? '★' : ''}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-3 h-3 text-cyan-600 ml-1 pointer-events-none" />
+      <header className="sticky top-0 z-30 bg-zinc-950/90 backdrop-blur-md border-b border-cyan-500/30 px-4 py-3 shadow-[0_4px_20px_rgba(6,182,212,0.15)]">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center justify-between w-full md:w-auto gap-4">
+            <div className="flex items-center gap-3 min-w-max">
+              <div className="bg-zinc-900 border border-fuchsia-500 p-1.5 shadow-[0_0_10px_rgba(217,70,239,0.3)]">
+                <Terminal className="w-6 h-6 text-fuchsia-400" />
+              </div>
+              <div className="flex flex-col">
+                <h1 className="text-xl font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500 leading-none">
+                  NEURAL_DB
+                </h1>
+                {!activeApiKey && (
+                  <span className="text-[0.5rem] text-zinc-500 tracking-[0.3em] font-bold uppercase mt-1 hidden sm:block">Offline_Local_Mode</span>
+                )}
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 bg-zinc-900 px-3 py-2 border border-fuchsia-900/50 focus-within:border-fuchsia-500 transition-all min-w-[140px]">
-              <Key className="w-4 h-4 text-fuchsia-500" />
-              <select 
-                className="bg-transparent border-none text-xs focus:ring-0 p-0 outline-none text-fuchsia-100 flex-1 appearance-none cursor-pointer"
-                value={selectedApiKeyId || ''}
-                onChange={(e) => setSelectedApiKeyId(e.target.value)}
-              >
-                <option value="" disabled className="bg-zinc-900">APIキーを選択...</option>
-                {apiKeys.map(ak => (
-                  <option key={ak.id} value={ak.id} className="bg-zinc-900">{ak.name}</option>
-                ))}
-              </select>
-              <ChevronDown className="w-3 h-3 text-fuchsia-500 ml-1 pointer-events-none" />
-            </div>
-            
-            {activeApiKey && notes.some(n => !n.vector) && (
+            <div className="flex items-center gap-2 md:hidden">
+              {activeApiKey && notes.some(n => !n.vector) && (
+                <button 
+                  onClick={handleVectorizeAll}
+                  disabled={isAdding}
+                  className="p-2 bg-fuchsia-950/30 border border-fuchsia-500/50 text-fuchsia-400"
+                >
+                  <Zap className={`w-4 h-4 ${isAdding ? 'animate-pulse' : ''}`} />
+                </button>
+              )}
               <button 
-                onClick={handleVectorizeAll}
-                disabled={isAdding}
-                className="p-2 bg-fuchsia-950/30 border border-fuchsia-500/50 text-fuchsia-400 hover:text-fuchsia-200 hover:border-fuchsia-400 transition-all flex items-center gap-2 px-3"
-                title={`${notes.filter(n => !n.vector).length}件の未処理メモをベクトル化`}
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="p-2 bg-zinc-900 border border-cyan-900 text-cyan-500"
               >
-                <Zap className={`w-4 h-4 ${isAdding ? 'animate-pulse' : ''}`} />
-                <span className="text-[0.6rem] font-bold tracking-tighter hidden lg:block">BATCH_SYNC</span>
+                {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
-            )}
-            
-            <button 
-              onClick={() => setIsApiKeyModalOpen(true)}
-              className="p-2 bg-zinc-900 border border-fuchsia-900/50 text-fuchsia-500 hover:text-fuchsia-300 hover:border-fuchsia-500 transition-all"
-              title="APIキー管理"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
+            </div>
+          </div>
+
+          <div className="flex-1 w-full max-w-2xl">
+            <div className="relative flex items-center w-full bg-zinc-900 border border-cyan-900/50 focus-within:border-cyan-400 focus-within:shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all">
+              <button onClick={handleSearch} disabled={isSearching} className="p-3 text-cyan-600 hover:text-cyan-300">
+                {isSearching ? <Loader2 className="w-5 h-5 animate-spin text-fuchsia-500" /> : <Search className="w-5 h-5" />}
+              </button>
+              <input
+                type="text"
+                className="w-full bg-transparent border-none focus:ring-0 py-3 pr-4 text-sm placeholder-cyan-800 outline-none text-cyan-100"
+                placeholder="検索クエリ > 意味・文脈でスキャン..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              />
+              {searchQuery && (
+                <button onClick={() => { setSearchQuery(''); setSearchVector(null); }} className="p-3 text-fuchsia-500 hover:text-fuchsia-300">
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+              <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent"></div>
+            </div>
+          </div>
+
+          <div className={`
+            ${isMobileMenuOpen ? 'flex' : 'hidden md:flex'} 
+            flex-col md:flex-row items-stretch md:items-center gap-3 pt-4 md:pt-0 border-t md:border-t-0 border-cyan-900/30 md:flex-shrink-0
+          `}>
+            <div className="flex items-center gap-1 border-b md:border-b-0 md:border-r border-cyan-900/50 pb-3 md:pb-0 md:pr-3 md:mr-1 justify-between md:justify-start">
+              <div className="flex items-center gap-1">
+                <button onClick={handleExport} className="p-2 text-cyan-600 hover:text-cyan-300 hover:bg-cyan-950/50 transition-colors">
+                  <Download className="w-5 h-5" />
+                </button>
+                <label className="p-2 text-cyan-600 hover:text-cyan-300 hover:bg-cyan-950/50 transition-colors cursor-pointer">
+                  <Upload className="w-5 h-5" />
+                  <input type="file" accept=".json" className="hidden" ref={fileInputRef} onChange={handleImport} />
+                </label>
+              </div>
+              <button 
+                onClick={() => setIsApiKeyModalOpen(true)}
+                className="md:hidden p-2 bg-zinc-900 border border-fuchsia-900/50 text-fuchsia-500"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:flex items-center gap-2">
+              <div className="flex items-center gap-2 bg-zinc-900 px-3 py-2 border border-cyan-900/50 focus-within:border-cyan-400 transition-all">
+                <BrainCircuit className={`w-4 h-4 flex-shrink-0 ${AVAILABLE_MODELS.find(m => m.id === selectedModelId)?.isPaid ? 'text-amber-400' : 'text-cyan-500'}`} />
+                <select 
+                  className="bg-transparent border-none text-[0.65rem] focus:ring-0 p-0 outline-none text-cyan-100 flex-1 appearance-none cursor-pointer font-bold"
+                  value={selectedModelId}
+                  onChange={(e) => setSelectedModelId(e.target.value)}
+                >
+                  {AVAILABLE_MODELS.map(model => (
+                    <option key={model.id} value={model.id} className="bg-zinc-900">
+                      {model.name} {model.isPaid ? '★' : ''}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3 h-3 text-cyan-600 ml-1 pointer-events-none" />
+              </div>
+
+              <div className="flex items-center gap-2 bg-zinc-900 px-3 py-2 border border-fuchsia-900/50 focus-within:border-fuchsia-500 transition-all">
+                <Key className="w-4 h-4 flex-shrink-0 text-fuchsia-500" />
+                <select 
+                  className="bg-transparent border-none text-xs focus:ring-0 p-0 outline-none text-fuchsia-100 flex-1 appearance-none cursor-pointer"
+                  value={selectedApiKeyId || ''}
+                  onChange={(e) => setSelectedApiKeyId(e.target.value)}
+                >
+                  <option value="" disabled className="bg-zinc-900">APIキーを選択...</option>
+                  {apiKeys.map(ak => (
+                    <option key={ak.id} value={ak.id} className="bg-zinc-900">{ak.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3 h-3 text-fuchsia-500 ml-1 pointer-events-none" />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 justify-between md:justify-start">
+              {activeApiKey && notes.some(n => !n.vector) && (
+                <button 
+                  onClick={handleVectorizeAll}
+                  disabled={isAdding}
+                  className="flex-1 md:flex-none p-2 bg-fuchsia-950/30 border border-fuchsia-500/50 text-fuchsia-400 hover:text-fuchsia-200 transition-all flex items-center justify-center gap-2 px-3 focus:outline-none"
+                >
+                  <Zap className={`w-4 h-4 ${isAdding ? 'animate-pulse' : ''}`} />
+                  <span className="text-[0.6rem] font-bold tracking-widest whitespace-nowrap">BATCH_SYNC</span>
+                </button>
+              )}
+              
+              <button 
+                onClick={() => setIsApiKeyModalOpen(true)}
+                className="hidden md:block p-2 bg-zinc-900 border border-fuchsia-900/50 text-fuchsia-500 hover:text-fuchsia-300 transition-all focus:outline-none"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -1025,14 +1056,26 @@ export default function App() {
               onPaste={handlePaste}
             />
             
-            <div className="flex-1 relative border-l border-cyan-500/20 pl-6 ml-1">
+            <div className="flex-1 flex gap-0 overflow-hidden border-l border-cyan-500/20">
+              <div 
+                className="w-12 flex-shrink-0 flex flex-col items-end pr-3 pt-1 text-cyan-800 font-mono text-lg leading-relaxed select-none overflow-hidden bg-zinc-950/30"
+                id="focus-line-numbers"
+              >
+                {newNoteText.split('\n').map((_, i) => (
+                  <div key={i}>{String(i + 1).padStart(2, '0')}</div>
+                ))}
+              </div>
               <textarea
                 autoFocus
-                className="w-full h-full bg-transparent resize-none outline-none text-lg leading-relaxed text-cyan-100 placeholder-zinc-800 font-mono custom-scrollbar"
+                className="flex-1 h-full bg-transparent resize-none outline-none text-lg leading-relaxed text-cyan-100 placeholder-zinc-800 font-mono custom-scrollbar pl-4 border-l border-cyan-900/30"
                 placeholder="ここに壮大な思考を記録してください..."
                 value={newNoteText}
                 onChange={(e) => setNewNoteText(e.target.value)}
                 onPaste={handlePaste}
+                onScroll={(e) => {
+                  const el = document.getElementById('focus-line-numbers');
+                  if (el) el.scrollTop = (e.target as HTMLTextAreaElement).scrollTop;
+                }}
               />
             </div>
 
