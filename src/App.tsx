@@ -121,7 +121,7 @@ export default function App() {
     
     if (savedNotes) {
       if (!encryptedFlag) {
-        // 暗号化されていない場合は即座にロード
+        // 暗号化されていないデータがある場合は、そのままロード（後で設定可能）
         try {
           setNotes(JSON.parse(savedNotes));
           setIsLocked(false);
@@ -129,12 +129,18 @@ export default function App() {
           console.error('Failed to load notes:', e);
         }
       } else {
-        // 暗号化されている場合は、認証（masterKeyのセット）を待つ必要がある
+        // 暗号化されている場合は、認証（masterKeyのセット）を待つ
         setIsLocked(true);
       }
     } else {
-      // 初回起動時
-      setIsLocked(false);
+      // メモがない＝新規ユーザー。暗号化セットアップを推奨するためロック画面（セットアップ）を表示
+      if (localStorage.getItem('neural_db_encrypted')) {
+        // 過去に暗号化設定だけしたことがある場合はロック
+        setIsLocked(true);
+      } else {
+        // 完全に初めて
+        setIsLocked(true);
+      }
     }
   }, []);
 
