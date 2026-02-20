@@ -223,7 +223,7 @@ export default function App() {
     }
   };
 
-  // 単体ベクトル化（後出しベクトル化）
+  // 単体ベクトル化（後出しベクトル化・要約）
   const handleVectorizeNote = async (id: string) => {
     if (!activeApiKey) return;
     const note = notes.find(n => n.id === id);
@@ -231,11 +231,21 @@ export default function App() {
 
     setIsAdding(true);
     try {
-      const textToEmbed = note.title ? `${note.title}\n${note.text}` : note.text;
+      let currentText = note.text;
+      let currentSummary = note.summary;
+      
+      // 画像やファイルがあり、まだ要約されていない場合は先に要約を実行
+      if (note.fileData && !note.summary) {
+        currentSummary = await summarizeFile(note.fileData, note.fileType || '', activeApiKey, selectedModelId);
+        currentText = currentSummary; // ファイルの場合は要約を本文とする
+      }
+
+      const textToEmbed = note.title ? `${note.title}\n${currentText}` : currentText;
       const vector = await getEmbedding(textToEmbed, activeApiKey);
-      setNotes(prev => prev.map(n => n.id === id ? { ...n, vector } : n));
+      setNotes(prev => prev.map(n => n.id === id ? { ...n, vector, text: currentText, summary: currentSummary } : n));
     } catch (err) {
       console.error('Vectorization failed:', err);
+      setError('AI処理（再解析）に失敗しました。APIキーやモデル設定を確認してください。');
     } finally {
       setIsAdding(false);
     }
@@ -250,12 +260,26 @@ export default function App() {
     setIsAdding(true);
     try {
       for (const note of unvectorized) {
-        const textToEmbed = note.title ? `${note.title}\n${note.text}` : note.text;
+        let currentText = note.text;
+        let currentSummary = note.summary;
+        
+        if (note.fileData && !note.summary) {
+          try {
+            currentSummary = await summarizeFile(note.fileData, note.fileType || '', activeApiKey, selectedModelId);
+            currentText = currentSummary;
+          } catch (e) {
+            console.error(`Failed to summarize file for note ${note.id}:`, e);
+            continue; // 失敗した場合は次へ
+          }
+        }
+
+        const textToEmbed = note.title ? `${note.title}\n${currentText}` : currentText;
         const vector = await getEmbedding(textToEmbed, activeApiKey);
-        setNotes(prev => prev.map(n => n.id === note.id ? { ...n, vector } : n));
+        setNotes(prev => prev.map(n => n.id === note.id ? { ...n, vector, text: currentText, summary: currentSummary } : n));
       }
     } catch (err) {
       console.error('Batch vectorization failed:', err);
+      setError('一括処理中にエラーが発生しました。');
     } finally {
       setIsAdding(false);
     }
