@@ -87,6 +87,7 @@ export default function App() {
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [isTagCloudOpen, setIsTagCloudOpen] = useState(false);
   
   const inputRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -733,16 +734,34 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-2 justify-between md:justify-start">
-              {activeApiKey && notes.some(n => !n.vector) && (
+              {/* BATCH_SYNC & TAG_CLOUD */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsTagCloudOpen(!isTagCloudOpen)}
+                className={`
+                  p-2 flex items-center justify-center transition-all border
+                  ${isTagCloudOpen 
+                    ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.3)]' 
+                    : 'bg-zinc-900 border-cyan-900 text-cyan-500 hover:border-cyan-700 hover:text-cyan-400'
+                  }
+                `}
+                title="タグクラウドを開く"
+              >
+                <TagIcon className="w-5 h-5" />
+              </button>
+              
+              <div className="hidden sm:flex">
                 <button 
                   onClick={handleVectorizeAll}
-                  disabled={isAdding}
-                  className="flex-1 md:flex-none p-2 bg-fuchsia-950/30 border border-fuchsia-500/50 text-fuchsia-400 hover:text-fuchsia-200 transition-all flex items-center justify-center gap-2 px-3 focus:outline-none"
+                  disabled={isAdding || notes.filter(n => !n.vector).length === 0}
+                  className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-cyan-900 text-cyan-500 hover:bg-cyan-900/20 hover:text-cyan-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono text-xs font-bold whitespace-nowrap"
                 >
-                  <Zap className={`w-4 h-4 ${isAdding ? 'animate-pulse' : ''}`} />
-                  <span className="text-[0.6rem] font-bold tracking-widest whitespace-nowrap">BATCH_SYNC</span>
+                  <RefreshCw className={`w-4 h-4 ${isAdding ? 'animate-spin' : ''}`} />
+                  <span className="hidden lg:inline">BATCH_SYNC</span>
+                  <span className="lg:hidden">SYNC</span>
                 </button>
-              )}
+              </div>
+            </div>
               
               <button 
                 onClick={() => setIsApiKeyModalOpen(true)}
@@ -952,6 +971,8 @@ export default function App() {
           tags={allTags} 
           selectedTags={selectedTags} 
           onToggleTag={handleToggleTag} 
+          isOpen={isTagCloudOpen}
+          onClose={() => setIsTagCloudOpen(false)}
         />
 
         {filteredNotes.length === 0 ? (
