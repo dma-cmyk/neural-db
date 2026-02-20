@@ -1,16 +1,21 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Search, Plus, Loader2, Trash2, X, BrainCircuit, Info, Key, Download, Upload, Edit2, Terminal, Maximize2, Minimize2, Zap, RefreshCw, Menu } from 'lucide-react';
+import { 
+  Search, Plus, Loader2, Trash2, X, BrainCircuit, Info, Key, Download, Upload, 
+  Edit2, Terminal, Maximize2, Minimize2, Zap, RefreshCw, Menu, 
+  File as FileIcon, Paperclip, ChevronDown, Check, Settings, ExternalLink, Unlink, 
+  Tag as TagIcon, ShieldCheck 
+} from 'lucide-react';
 import { calculateCosineSimilarity } from './lib/utils';
 import { getEmbedding, summarizeFile, generateTitle, batchGetEmbeddings, generateTags } from './lib/gemini';
 import { NoteContent } from './components/NoteContent';
 import { FilePreview } from './components/FilePreview';
 import { TagCloud } from './components/TagCloud';
-import { File as FileIcon, Paperclip, ChevronDown, Check, Settings, ExternalLink, Unlink, Tag as TagIcon } from 'lucide-react';
 import { LinkPreview } from './components/LinkPreview';
+import { extractUrls, fetchLinkMetadata, LinkMetadata } from './lib/linkMetadata';
+import { NeuralLink } from './components/NeuralLink';
+import { deriveKeyFromMnemonic, encryptData, decryptData } from './lib/encryption';
 
 const defaultApiKey = ""; // 実行環境から自動的に提供されます
-
-import { extractUrls, fetchLinkMetadata, LinkMetadata } from './lib/linkMetadata';
 
 interface Note {
   id: string;
@@ -89,6 +94,13 @@ export default function App() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isTagCloudOpen, setIsTagCloudOpen] = useState(false);
   
+  // セキュリティ状態
+  const [masterKey, setMasterKey] = useState<CryptoKey | null>(null);
+  const [isEncrypted, setIsEncrypted] = useState<boolean>(() => {
+    return localStorage.getItem('neural_db_encrypted') === 'true';
+  });
+  const [isLocked, setIsLocked] = useState<boolean>(true);
+  
   const inputRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resourceInputRef = useRef<HTMLInputElement>(null);
@@ -105,22 +117,67 @@ export default function App() {
 
     // メモのロード
     const savedNotes = localStorage.getItem('neural_db_notes');
+    const encryptedFlag = localStorage.getItem('neural_db_encrypted') === 'true';
+    
     if (savedNotes) {
-      try {
-        setNotes(JSON.parse(savedNotes));
-      } catch (e) {
-        console.error('Failed to load notes:', e);
+      if (!encryptedFlag) {
+        // 暗号化されていない場合は即座にロード
+        try {
+          setNotes(JSON.parse(savedNotes));
+          setIsLocked(false);
+        } catch (e) {
+          console.error('Failed to load notes:', e);
+        }
+      } else {
+        // 暗号化されている場合は、認証（masterKeyのセット）を待つ必要がある
+        setIsLocked(true);
       }
+    } else {
+      // 初回起動時
+      setIsLocked(false);
     }
   }, []);
+
+  // 認証成功時の復号処理
+  useEffect(() => {
+    if (masterKey && isEncrypted) {
+      const savedNotes = localStorage.getItem('neural_db_notes');
+      if (savedNotes) {
+        decryptData(savedNotes, masterKey)
+          .then(decrypted => {
+            setNotes(JSON.parse(decrypted));
+            setIsLocked(false);
+          })
+          .catch(err => {
+            console.error('復号に失敗しました:', err);
+            setError('認証に失敗しました。キーが正しくない可能性があります。');
+            setMasterKey(null);
+          });
+      }
+    }
+  }, [masterKey, isEncrypted]);
 
   useEffect(() => {
     localStorage.setItem('neural_db_api_keys', JSON.stringify(apiKeys));
   }, [apiKeys]);
 
   useEffect(() => {
-    localStorage.setItem('neural_db_notes', JSON.stringify(notes));
-  }, [notes]);
+    if (isLocked) return; // ロック中は上書き保存しない
+
+    const saveNotes = async () => {
+      const notesJson = JSON.stringify(notes);
+      if (isEncrypted && masterKey) {
+        const encrypted = await encryptData(notesJson, masterKey);
+        localStorage.setItem('neural_db_notes', encrypted);
+        localStorage.setItem('neural_db_encrypted', 'true');
+      } else {
+        localStorage.setItem('neural_db_notes', notesJson);
+        localStorage.setItem('neural_db_encrypted', 'false');
+      }
+    };
+    
+    saveNotes();
+  }, [notes, isEncrypted, masterKey, isLocked]);
 
   const activeApiKey = useMemo(() => {
     const selected = apiKeys.find(ak => ak.id === selectedApiKeyId);
@@ -541,7 +598,27 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUnlock = async (mnemonic: string) => {
+    try {
+      const key = await deriveKeyFromMnemonic(mnemonic);
+      setMasterKey(key);
+      if (!isEncrypted) {
+        // 初回セットアップ時は、この瞬間に暗号化を有効化する
+        setIsEncrypted(true);
+        localStorage.setItem('neural_db_encrypted', 'true');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('無効なキーです');
+    }
+  };
+
+  const handleToggleEncryption = () => {
+    if (!masterKey && isEncrypted) return;
+    setIsEncrypted(!isEncrypted);
+  };
+
+  const handleImportNotes = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -617,7 +694,14 @@ export default function App() {
   }, [newNoteText, newNoteTitle]);
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-cyan-400 font-mono selection:bg-fuchsia-500 selection:text-white">
+    <div className="min-h-screen bg-zinc-950 text-cyan-50 font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
+      {/* 認証・ロック画面 */}
+      {isLocked && (
+        <NeuralLink 
+          onUnlock={handleUnlock} 
+          isInitialSetup={!isEncrypted && !notes.length} 
+        />
+      )}
       
       {/* ーーー ヘッダー ーーー */}
       <header className="sticky top-0 z-30 bg-zinc-950/90 backdrop-blur-md border-b border-cyan-500/30 px-4 py-3 shadow-[0_4px_20px_rgba(6,182,212,0.15)]">
@@ -689,7 +773,7 @@ export default function App() {
                 </button>
                 <label className="p-2 text-cyan-600 hover:text-cyan-300 hover:bg-cyan-950/50 transition-colors cursor-pointer">
                   <Upload className="w-5 h-5" />
-                  <input type="file" accept=".json" className="hidden" ref={fileInputRef} onChange={handleImport} />
+                  <input type="file" accept=".json" className="hidden" ref={fileInputRef} onChange={handleImportNotes} />
                 </label>
               </div>
               <button 
@@ -999,6 +1083,35 @@ export default function App() {
                     : 'border-cyan-900/60 hover:border-cyan-500/80 hover:shadow-[0_0_10px_rgba(6,182,212,0.1)]'
                 }`}
               >
+                {/* セキュリティ設定 */}
+            <div className="p-4 bg-zinc-950 border border-cyan-900/50 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className={`w-4 h-4 ${isEncrypted ? 'text-cyan-400' : 'text-zinc-700'}`} />
+                  <span className="text-[0.65rem] font-bold text-cyan-100 uppercase tracking-widest">Neural_Encryption</span>
+                </div>
+                <button
+                  onClick={handleToggleEncryption}
+                  className={`
+                    w-10 h-5 rounded-full relative transition-all duration-300
+                    ${isEncrypted ? 'bg-cyan-600 shadow-[0_0_10px_rgba(6,182,212,0.5)]' : 'bg-zinc-800'}
+                  `}
+                >
+                  <div className={`
+                    absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-all duration-300
+                    ${isEncrypted ? 'translate-x-5' : 'translate-x-0'}
+                  `} />
+                </button>
+              </div>
+              <p className="text-[0.55rem] text-cyan-800 leading-tight">
+                メモデータを軍用グレードの256bit AESで暗号化します。キーを紛失すると復旧できません。
+              </p>
+              {isEncrypted && !masterKey && (
+                <div className="p-2 bg-amber-950/20 border border-amber-900/50 text-amber-500 text-[0.55rem] font-bold animate-pulse">
+                  AUTHENTICATION_REQUIRED_FOR_SAVE
+                </div>
+              )}
+            </div>
                 {/* 装飾用コーナーアクセント */}
                 <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyan-400"></div>
                 <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-cyan-400"></div>
