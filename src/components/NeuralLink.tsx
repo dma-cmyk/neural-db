@@ -34,12 +34,12 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
   const [isRegistering, setIsRegistering] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
 
-  // セットアップ時のシード生成
+  // セットアップ時または新規登録時のシード生成
   useEffect(() => {
-    if (isInitialSetup && !generatedMnemonic) {
+    if ((isInitialSetup || isRegistering) && !generatedMnemonic) {
       setGeneratedMnemonic(generateMnemonic());
     }
-  }, [isInitialSetup, generatedMnemonic]);
+  }, [isInitialSetup, isRegistering, generatedMnemonic]);
 
   // モードが生体認証になったら即座に開始
   useEffect(() => {
@@ -226,7 +226,12 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
   const renderMnemonic = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
       <div className="flex items-center gap-4 mb-6 cursor-pointer hover:text-cyan-300 transition-colors text-cyan-700" 
-           onClick={() => setMode(isRegistering ? 'home' : 'auth_selection')}>
+           onClick={() => {
+             const prevMode = isRegistering ? 'home' : 'auth_selection';
+             setIsRegistering(false);
+             setGeneratedMnemonic('');
+             setMode(prevMode);
+           }}>
         <ChevronLeft className="w-4 h-4" />
         <span className="text-[0.6rem] font-bold tracking-widest uppercase">戻る</span>
       </div>
