@@ -11,6 +11,7 @@ import { NoteContent } from './components/NoteContent';
 import { FilePreview } from './components/FilePreview';
 import { TagCloud } from './components/TagCloud';
 import { LinkPreview } from './components/LinkPreview';
+import { DiffView } from './components/DiffView';
 import { extractUrls, fetchLinkMetadata, LinkMetadata } from './lib/linkMetadata';
 import { NeuralLink } from './components/NeuralLink';
 import { deriveKeyFromMnemonic, encryptData, decryptData, deriveVaultId, registerBiometric, isBiometricAvailable } from './lib/encryption';
@@ -101,6 +102,10 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isTagCloudOpen, setIsTagCloudOpen] = useState(false);
+  
+  // エディタ拡張状態
+  const [editorMode, setEditorMode] = useState<'write' | 'preview' | 'diff'>('write');
+  const [originalTextForDiff, setOriginalTextForDiff] = useState('');
   
   // セキュリティ状態
   const [masterKey, setMasterKey] = useState<CryptoKey | null>(null);
@@ -277,9 +282,15 @@ export default function App() {
     setEditingNoteId(null);
     setIsInputExpanded(false);
     setIsFocusMode(false);
+    setEditorMode('write');
+    setOriginalTextForDiff('');
   };
 
   const handleToggleFocus = () => {
+    if (!isFocusMode) {
+      setEditorMode('write');
+      setOriginalTextForDiff('');
+    }
     setIsFocusMode(prev => !prev);
   };
 
@@ -640,7 +651,14 @@ export default function App() {
     setIsAiEditing(true);
     try {
       const result = await editNoteWithAI(newNoteText, instruction, apiKeyToUse);
-      setNewNoteText(result);
+      if (isFocusMode) {
+        // 全画面モード時は差分表示へ
+        setOriginalTextForDiff(newNoteText);
+        setNewNoteText(result); // resultを入れるが、確定前
+        setEditorMode('diff');
+      } else {
+        setNewNoteText(result);
+      }
       setAiInstruction('');
     } catch (err: any) {
       setError('AI編集に失敗しました: ' + err.message);
@@ -1457,27 +1475,87 @@ export default function App() {
               onPaste={handlePaste}
             />
             
-            <div className="flex-1 flex gap-0 overflow-hidden border-l border-cyan-500/20">
-              <div 
-                className="w-12 flex-shrink-0 flex flex-col items-end pr-3 pt-1 text-cyan-800 font-mono text-lg leading-relaxed select-none overflow-hidden bg-zinc-950/30"
-                id="focus-line-numbers"
+            <div className="flex items-center gap-1 mb-6 border-b border-cyan-900/40">
+              <button 
+                onClick={() => setEditorMode('write')}
+                className={`px-4 py-2 text-[0.65rem] font-bold tracking-widest uppercase transition-all ${editorMode === 'write' ? 'text-cyan-400 border-b-2 border-cyan-500 bg-cyan-950/20' : 'text-zinc-600 hover:text-zinc-400'}`}
               >
-                {newNoteText.split('\n').map((_, i) => (
-                  <div key={i}>{String(i + 1).padStart(2, '0')}</div>
-                ))}
-              </div>
-              <textarea
-                autoFocus
-                className="flex-1 h-full bg-transparent resize-none outline-none text-lg leading-relaxed text-cyan-100 placeholder-zinc-800 font-mono custom-scrollbar pl-4 border-l border-cyan-900/30"
-                placeholder="ここに壮大な思考を記録してください..."
-                value={newNoteText}
-                onChange={(e) => setNewNoteText(e.target.value)}
-                onPaste={handlePaste}
-                onScroll={(e) => {
-                  const el = document.getElementById('focus-line-numbers');
-                  if (el) el.scrollTop = (e.target as HTMLTextAreaElement).scrollTop;
-                }}
-              />
+                [ Edit ]
+              </button>
+              <button 
+                onClick={() => setEditorMode('preview')}
+                className={`px-4 py-2 text-[0.65rem] font-bold tracking-widest uppercase transition-all ${editorMode === 'preview' ? 'text-fuchsia-400 border-b-2 border-fuchsia-500 bg-fuchsia-950/20' : 'text-zinc-600 hover:text-zinc-400'}`}
+              >
+                [ Preview ]
+              </button>
+              {originalTextForDiff && (
+                <button 
+                  onClick={() => setEditorMode('diff')}
+                  className={`px-4 py-2 text-[0.65rem] font-bold tracking-widest uppercase transition-all ${editorMode === 'diff' ? 'text-emerald-400 border-b-2 border-emerald-500 bg-emerald-950/20' : 'text-zinc-600 hover:text-zinc-400'}`}
+                >
+                  [ Diff_Scan ]
+                </button>
+              )}
+            </div>
+
+            <div className="flex-1 flex flex-col gap-0 overflow-hidden border-l border-cyan-510/10">
+              {editorMode === 'write' && (
+                <div className="flex-1 flex gap-0 overflow-hidden">
+                  <div 
+                    className="w-12 flex-shrink-0 flex flex-col items-end pr-3 pt-1 text-cyan-800 font-mono text-lg leading-relaxed select-none overflow-hidden bg-zinc-950/30"
+                    id="focus-line-numbers"
+                  >
+                    {newNoteText.split('\n').map((_, i) => (
+                      <div key={i}>{String(i + 1).padStart(2, '0')}</div>
+                    ))}
+                  </div>
+                  <textarea
+                    autoFocus
+                    className="flex-1 h-full bg-transparent resize-none outline-none text-lg leading-relaxed text-cyan-100 placeholder-zinc-800 font-mono custom-scrollbar pl-4 border-l border-cyan-900/30"
+                    placeholder="ここに壮大な思考を記録してください..."
+                    value={newNoteText}
+                    onChange={(e) => setNewNoteText(e.target.value)}
+                    onPaste={handlePaste}
+                    onScroll={(e) => {
+                      const el = document.getElementById('focus-line-numbers');
+                      if (el) el.scrollTop = (e.target as HTMLTextAreaElement).scrollTop;
+                    }}
+                  />
+                </div>
+              )}
+
+              {editorMode === 'preview' && (
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-4">
+                  <NoteContent text={newNoteText} />
+                </div>
+              )}
+
+              {editorMode === 'diff' && (
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <DiffView oldText={originalTextForDiff} newText={newNoteText} />
+                  <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-cyan-900/30">
+                    <button 
+                      onClick={() => {
+                        setNewNoteText(originalTextForDiff);
+                        setOriginalTextForDiff('');
+                        setEditorMode('write');
+                      }}
+                      className="px-4 py-2 text-[0.6rem] font-bold text-red-500 hover:bg-red-950/30 border border-red-900/50 uppercase tracking-widest"
+                    >
+                      変更を破棄
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setOriginalTextForDiff('');
+                        setEditorMode('write');
+                      }}
+                      className="px-6 py-2 text-[0.6rem] font-bold text-emerald-400 bg-emerald-950/20 border border-emerald-500 hover:bg-emerald-500 hover:text-emerald-950 transition-all uppercase tracking-widest"
+                    >
+                      変更を適用
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {pendingFile && (
