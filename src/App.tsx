@@ -4,9 +4,12 @@ import { calculateCosineSimilarity } from './lib/utils';
 import { getEmbedding, summarizeFile, generateTitle, batchGetEmbeddings } from './lib/gemini';
 import { NoteContent } from './components/NoteContent';
 import { FilePreview } from './components/FilePreview';
-import { File as FileIcon, Paperclip, ChevronDown, Check, Settings } from 'lucide-react';
+import { File as FileIcon, Paperclip, ChevronDown, Check, Settings, ExternalLink, Unlink } from 'lucide-react';
+import { LinkPreview } from './components/LinkPreview';
 
 const defaultApiKey = ""; // 実行環境から自動的に提供されます
+
+import { extractUrls, fetchLinkMetadata, LinkMetadata } from './lib/linkMetadata';
 
 interface Note {
   id: string;
@@ -17,6 +20,7 @@ interface Note {
   fileData: string | null;
   fileName: string | null;
   fileType: string | null;
+  links?: LinkMetadata[];
   createdAt: string;
   updatedAt: string;
 }
@@ -149,6 +153,13 @@ export default function App() {
     try {
       let vectorToUse = null;
       let finalSummary = "";
+      let linkMetadataResults: LinkMetadata[] = [];
+      
+      // URLの検知とメタデータの取得
+      const urls = extractUrls(newNoteText);
+      if (urls.length > 0) {
+        linkMetadataResults = await Promise.all(urls.map(url => fetchLinkMetadata(url)));
+      }
       
       // APIキーがある場合のみAI処理を実行
       if (activeApiKey) {
@@ -171,7 +182,15 @@ export default function App() {
           }
 
           if (!vectorToUse) {
-            const textToEmbed = newNoteTitle ? `${newNoteTitle}\n${newNoteText}` : newNoteText;
+            const linkContext = linkMetadataResults
+              .filter(l => l.status === 'success' && l.title)
+              .map(l => l.title)
+              .join('\n');
+            const textToEmbed = [
+              newNoteTitle, 
+              newNoteText,
+              linkContext
+            ].filter(Boolean).join('\n');
             vectorToUse = await getEmbedding(textToEmbed, activeApiKey);
           }
         }
@@ -201,6 +220,7 @@ export default function App() {
         fileData: pendingFile ? pendingFile.data : (editingNoteId ? notes.find(n => n.id === editingNoteId)?.fileData ?? null : null),
         fileName: pendingFile ? pendingFile.name : (editingNoteId ? notes.find(n => n.id === editingNoteId)?.fileName ?? null : null),
         fileType: pendingFile ? pendingFile.type : (editingNoteId ? notes.find(n => n.id === editingNoteId)?.fileType ?? null : null),
+        links: linkMetadataResults.length > 0 ? linkMetadataResults : undefined,
         createdAt: editingNoteId ? notes.find(n => n.id === editingNoteId)?.createdAt ?? new Date().toISOString() : new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -229,6 +249,7 @@ export default function App() {
     try {
       let currentText = note.text;
       let currentSummary = note.summary;
+      let currentLinks = note.links || [];
       
       // 画像やファイルがあり、まだ要約されていない場合は先に要約を実行
       if (note.fileData && !note.summary) {
@@ -236,9 +257,27 @@ export default function App() {
         currentText = currentSummary; // ファイルの場合は要約を本文とする
       }
 
-      const textToEmbed = note.title ? `${note.title}\n${currentText}` : currentText;
+      // Linkメタデータが未取得の場合は取得
+      if (currentLinks.length === 0) {
+        const urls = extractUrls(currentText);
+        if (urls.length > 0) {
+          currentLinks = await Promise.all(urls.map(url => fetchLinkMetadata(url)));
+        }
+      }
+
+      const linkContext = currentLinks
+        .filter(l => l.status === 'success' && l.title)
+        .map(l => l.title)
+        .join('\n');
+
+      const textToEmbed = [
+        note.title,
+        currentText,
+        linkContext
+      ].filter(Boolean).join('\n');
+
       const vector = await getEmbedding(textToEmbed, activeApiKey);
-      setNotes(prev => prev.map(n => n.id === id ? { ...n, vector, text: currentText, summary: currentSummary } : n));
+      setNotes(prev => prev.map(n => n.id === id ? { ...n, vector, text: currentText, summary: currentSummary, links: currentLinks } : n));
     } catch (err) {
       console.error('Vectorization failed:', err);
       setError('AI処理（再解析）に失敗しました。APIキーやモデル設定を確認してください。');
@@ -262,18 +301,34 @@ export default function App() {
       const updatedNotesMap = new Map<string, Partial<Note>>();
       
       const summaryPromises = unvectorized.map(async (note) => {
+        let currentText = note.text;
+        let currentSummary = note.summary;
+        let currentLinks = note.links || [];
+
+        // 1.1 ファイル要約
         if (note.fileData && !note.summary) {
           try {
-            const summary = await summarizeFile(note.fileData, note.fileType || '', activeApiKey, selectedModelId);
-            updatedNotesMap.set(note.id, { summary, text: summary });
-            return { id: note.id, text: summary, title: note.title };
+            currentSummary = await summarizeFile(note.fileData, note.fileType || '', activeApiKey, selectedModelId);
+            currentText = currentSummary;
+            updatedNotesMap.set(note.id, { summary: currentSummary, text: currentSummary });
           } catch (e) {
             console.error(`Failed to summarize: ${note.id}`, e);
             failCount++;
             return null;
           }
         }
-        return { id: note.id, text: note.text, title: note.title };
+
+        // 1.2 URLメタデータ取得
+        if (currentLinks.length === 0) {
+          const urls = extractUrls(currentText);
+          if (urls.length > 0) {
+            currentLinks = await Promise.all(urls.map(url => fetchLinkMetadata(url)));
+            const existing = updatedNotesMap.get(note.id) || {};
+            updatedNotesMap.set(note.id, { ...existing, links: currentLinks });
+          }
+        }
+
+        return { id: note.id, text: currentText, title: note.title, links: currentLinks };
       });
 
       const processedItems = (await Promise.all(summaryPromises)).filter(item => item !== null);
@@ -284,7 +339,14 @@ export default function App() {
       }
 
       // 2. Batch Embedding APIで一括ベクトル化
-      const textsToEmbed = processedItems.map(item => item?.title ? `${item.title}\n${item.text}` : item?.text || '');
+      const textsToEmbed = processedItems.map(item => {
+        if (!item) return '';
+        const linkContext = item.links
+          .filter(l => l.status === 'success' && l.title)
+          .map(l => l.title)
+          .join('\n');
+        return [item.title, item.text, linkContext].filter(Boolean).join('\n');
+      });
       const embeddings = await batchGetEmbeddings(textsToEmbed, activeApiKey);
 
       // 3. stateを一括更新
@@ -845,6 +907,10 @@ export default function App() {
                       fileName={note.fileName} 
                       fileType={note.fileType} 
                     />
+                  )}
+
+                  {note.links && note.links.length > 0 && (
+                    <LinkPreview links={note.links} />
                   )}
                   
                   <div className="mt-5 pt-3 border-t border-zinc-800 flex items-end justify-between">

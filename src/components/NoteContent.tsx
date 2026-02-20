@@ -17,7 +17,22 @@ export const NoteContent: React.FC<NoteContentProps> = ({ text }) => {
             {String(index + 1).padStart(2, '0')}
           </span>
           <span className="whitespace-pre-wrap break-words break-all flex-1 text-cyan-50">
-            {line === '' ? '\u00A0' : line}
+            {line === '' ? '\u00A0' : line.split(/(https?:\/\/[^\s$.?#].[^\s]*)/g).map((part, i) => {
+              if (part.match(/https?:\/\/[^\s$.?#].[^\s]*/)) {
+                return (
+                  <a 
+                    key={i} 
+                    href={part} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-fuchsia-400 hover:text-fuchsia-300 underline underline-offset-2 decoration-fuchsia-500/30 transition-colors"
+                  >
+                    {part}
+                  </a>
+                );
+              }
+              return part;
+            })}
           </span>
         </div>
       ))}
