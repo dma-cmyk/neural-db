@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Search, Plus, Loader2, Trash2, X, BrainCircuit, Info, Key, Download, Upload, Edit2, Terminal, Maximize2, Minimize2 } from 'lucide-react';
+import { Search, Plus, Loader2, Trash2, X, BrainCircuit, Info, Key, Download, Upload, Edit2, Terminal, Maximize2, Minimize2, Zap, RefreshCw } from 'lucide-react';
 import { calculateCosineSimilarity } from './lib/utils';
 import { getEmbedding, summarizeFile, generateTitle } from './lib/gemini';
 import { NoteContent } from './components/NoteContent';
@@ -13,7 +13,7 @@ interface Note {
   title: string;
   text: string;
   summary: string | null;
-  vector: number[];
+  vector: number[] | null;
   fileData: string | null;
   fileName: string | null;
   fileType: string | null;
@@ -154,38 +154,45 @@ export default function App() {
       let vectorToUse = null;
       let finalSummary = "";
       
-      if (pendingFile) {
-        setIsProcessingFile(true);
-        try {
-          // ファイルの要約を取得
-          finalSummary = await summarizeFile(pendingFile.data, pendingFile.type, activeApiKey, selectedModelId);
-          // 要約をベクトル化
-          vectorToUse = await getEmbedding(finalSummary, activeApiKey);
-        } finally {
-          setIsProcessingFile(false);
-        }
-      } else {
-        if (editingNoteId) {
-          const existingNote = notes.find(n => n.id === editingNoteId);
-          if (existingNote && existingNote.text === newNoteText) {
-            vectorToUse = existingNote.vector;
+      // APIキーがある場合のみAI処理を実行
+      if (activeApiKey) {
+        if (pendingFile) {
+          setIsProcessingFile(true);
+          try {
+            // ファイルの要約を取得
+            finalSummary = await summarizeFile(pendingFile.data, pendingFile.type, activeApiKey, selectedModelId);
+            // 要約をベクトル化
+            vectorToUse = await getEmbedding(finalSummary, activeApiKey);
+          } finally {
+            setIsProcessingFile(false);
           }
-        }
+        } else {
+          if (editingNoteId) {
+            const existingNote = notes.find(n => n.id === editingNoteId);
+            if (existingNote && existingNote.text === newNoteText) {
+              vectorToUse = existingNote.vector;
+            }
+          }
 
-        if (!vectorToUse) {
-          const textToEmbed = newNoteTitle ? `${newNoteTitle}\n${newNoteText}` : newNoteText;
-          vectorToUse = await getEmbedding(textToEmbed, activeApiKey);
+          if (!vectorToUse) {
+            const textToEmbed = newNoteTitle ? `${newNoteTitle}\n${newNoteText}` : newNoteText;
+            vectorToUse = await getEmbedding(textToEmbed, activeApiKey);
+          }
         }
       }
       
       let finalTitle = newNoteTitle.trim();
       
       if (!finalTitle) {
-        setIsGeneratingTitle(true);
-        try {
-          finalTitle = await generateTitle(pendingFile ? finalSummary : newNoteText, activeApiKey, selectedModelId);
-        } finally {
-          setIsGeneratingTitle(false);
+        if (activeApiKey) {
+          setIsGeneratingTitle(true);
+          try {
+            finalTitle = await generateTitle(pendingFile ? finalSummary : newNoteText, activeApiKey, selectedModelId);
+          } finally {
+            setIsGeneratingTitle(false);
+          }
+        } else {
+          finalTitle = pendingFile ? pendingFile.name : (newNoteText.slice(0, 10) || "無題のメモ");
         }
       }
       
@@ -211,6 +218,44 @@ export default function App() {
       handleCloseInput();
     } catch (err: any) {
       setError('システムエラー: 処理中に異常が発生しました。' + err.message);
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  // 単体ベクトル化（後出しベクトル化）
+  const handleVectorizeNote = async (id: string) => {
+    if (!activeApiKey) return;
+    const note = notes.find(n => n.id === id);
+    if (!note) return;
+
+    setIsAdding(true);
+    try {
+      const textToEmbed = note.title ? `${note.title}\n${note.text}` : note.text;
+      const vector = await getEmbedding(textToEmbed, activeApiKey);
+      setNotes(prev => prev.map(n => n.id === id ? { ...n, vector } : n));
+    } catch (err) {
+      console.error('Vectorization failed:', err);
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  // 一括ベクトル化
+  const handleVectorizeAll = async () => {
+    if (!activeApiKey) return;
+    const unvectorized = notes.filter(n => !n.vector);
+    if (unvectorized.length === 0) return;
+
+    setIsAdding(true);
+    try {
+      for (const note of unvectorized) {
+        const textToEmbed = note.title ? `${note.title}\n${note.text}` : note.text;
+        const vector = await getEmbedding(textToEmbed, activeApiKey);
+        setNotes(prev => prev.map(n => n.id === note.id ? { ...n, vector } : n));
+      }
+    } catch (err) {
+      console.error('Batch vectorization failed:', err);
     } finally {
       setIsAdding(false);
     }
@@ -291,8 +336,10 @@ export default function App() {
       setSearchVector(null);
       return;
     }
+
+    // APIキーがない場合はベクトル生成をスキップして簡易検索（displayedNotes側で処理）
     if (!activeApiKey) {
-      setError('認証エラー: APIキーが設定されていません。');
+      setSearchVector(null);
       return;
     }
 
@@ -302,7 +349,7 @@ export default function App() {
       const vector = await getEmbedding(searchQuery, activeApiKey);
       setSearchVector(vector);
     } catch (err) {
-      setError('システムエラー: 検索クエリの解析に失敗しました。');
+      console.error('Semantic search failed, falling back to local search.');
       setSearchVector(null);
     } finally {
       setIsSearching(false);
@@ -359,11 +406,28 @@ export default function App() {
   };
 
   const displayedNotes = useMemo(() => {
-    if (!searchVector) return notes.map(n => ({ ...n, score: null as number | null }));
-    return notes
-      .map(note => ({ ...note, score: calculateCosineSimilarity(searchVector, note.vector) }))
-      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-  }, [notes, searchVector]);
+    const query = searchQuery.toLowerCase().trim();
+    
+    // ベクトル検索時
+    if (searchVector) {
+      return notes
+        .map(note => ({ ...note, score: note.vector ? calculateCosineSimilarity(searchVector, note.vector) : 0 }))
+        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    }
+    
+    // キーワード検索時（または検索なし）
+    if (query) {
+      return notes
+        .filter(note => 
+          note.title.toLowerCase().includes(query) || 
+          note.text.toLowerCase().includes(query) ||
+          (note.summary && note.summary.toLowerCase().includes(query))
+        )
+        .map(n => ({ ...n, score: null as number | null }));
+    }
+
+    return notes.map(n => ({ ...n, score: null as number | null }));
+  }, [notes, searchVector, searchQuery]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -386,9 +450,14 @@ export default function App() {
           <div className="bg-zinc-900 border border-fuchsia-500 p-1.5 shadow-[0_0_10px_rgba(217,70,239,0.3)]">
             <Terminal className="w-6 h-6 text-fuchsia-400" />
           </div>
-          <h1 className="text-xl font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500 hidden md:block">
-            NEURAL_DB_v1.0
-          </h1>
+          <div className="flex flex-col">
+            <h1 className="text-xl font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500 hidden md:block leading-none">
+              NEURAL_DB_v1.0
+            </h1>
+            {!activeApiKey && (
+              <span className="text-[0.5rem] text-zinc-500 tracking-[0.3em] font-bold uppercase mt-1 hidden md:block">Offline_Local_Mode</span>
+            )}
+          </div>
         </div>
 
         {/* 検索バー */}
@@ -458,6 +527,18 @@ export default function App() {
               </select>
               <ChevronDown className="w-3 h-3 text-fuchsia-500 ml-1 pointer-events-none" />
             </div>
+            
+            {activeApiKey && notes.some(n => !n.vector) && (
+              <button 
+                onClick={handleVectorizeAll}
+                disabled={isAdding}
+                className="p-2 bg-fuchsia-950/30 border border-fuchsia-500/50 text-fuchsia-400 hover:text-fuchsia-200 hover:border-fuchsia-400 transition-all flex items-center gap-2 px-3"
+                title={`${notes.filter(n => !n.vector).length}件の未処理メモをベクトル化`}
+              >
+                <Zap className={`w-4 h-4 ${isAdding ? 'animate-pulse' : ''}`} />
+                <span className="text-[0.6rem] font-bold tracking-tighter hidden lg:block">BATCH_SYNC</span>
+              </button>
+            )}
             
             <button 
               onClick={() => setIsApiKeyModalOpen(true)}
@@ -603,7 +684,8 @@ export default function App() {
                 <div className="flex items-center gap-2 text-xs text-fuchsia-400 opacity-80">
                   <BrainCircuit className="w-4 h-4" />
                   <span className="tracking-widest">
-                    {isProcessingFile ? 'Geminiが解析中...' : 
+                    {!activeApiKey ? 'ローカルモード継続中 (保存のみ可能)' :
+                     isProcessingFile ? 'Geminiが解析中...' : 
                      isGeneratingTitle ? 'AIタイトル生成中...' :
                      editingNoteId ? '更新時にベクトル化を実行...' : 
                      pendingFile ? '要約後にベクトル化を実行...' : '保存時にベクトル化を実行...'}
@@ -715,11 +797,19 @@ export default function App() {
                   
                   <div className="mt-5 pt-3 border-t border-zinc-800 flex items-end justify-between">
                     <div className="flex flex-col gap-1">
-                      <span className="text-[0.65rem] text-cyan-700 tracking-widest">
-                        {new Date(note.createdAt).toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute:'2-digit' }).replace(/\//g, '.')}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[0.65rem] text-cyan-700 tracking-widest">
+                          {new Date(note.createdAt).toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute:'2-digit' }).replace(/\//g, '.')}
+                        </span>
+                        {!note.vector && (
+                          <div className="flex items-center gap-1 text-[0.55rem] text-fuchsia-500/80 bg-fuchsia-950/20 px-1 border border-fuchsia-900/40 font-bold animate-pulse">
+                            <RefreshCw className="w-2.5 h-2.5" />
+                            <span>NOT_SYNCED</span>
+                          </div>
+                        )}
+                      </div>
                       {note.updatedAt && note.updatedAt !== note.createdAt && (
-                        <span className="text-[0.6rem] text-fuchsia-600/70 tracking-widest">更新済</span>
+                        <span className="text-[0.6rem] text-fuchsia-600/70 tracking-widest leading-none">更新済</span>
                       )}
                     </div>
                     
@@ -735,6 +825,15 @@ export default function App() {
                       )}
                       
                       <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        {!note.vector && activeApiKey && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleVectorizeNote(note.id); }}
+                            className="p-1.5 text-fuchsia-400 hover:text-fuchsia-200 hover:bg-fuchsia-900/40 transition-all outline-none"
+                            title="このメモをベクトル化する"
+                          >
+                            <BrainCircuit className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <button
                           onClick={() => { handleEditNote(note); handleToggleFocus(); }}
                           className="p-1.5 text-fuchsia-600 hover:text-fuchsia-400 hover:bg-fuchsia-950/40 transition-all outline-none"
