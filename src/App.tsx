@@ -6,7 +6,7 @@ import {
   Tag as TagIcon, ShieldCheck 
 } from 'lucide-react';
 import { calculateCosineSimilarity } from './lib/utils';
-import { getEmbedding, summarizeFile, generateTitle, batchGetEmbeddings, generateTags } from './lib/gemini';
+import { getEmbedding, summarizeFile, generateTitle, batchGetEmbeddings, generateTags, editNoteWithAI } from './lib/gemini';
 import { NoteContent } from './components/NoteContent';
 import { FilePreview } from './components/FilePreview';
 import { TagCloud } from './components/TagCloud';
@@ -86,6 +86,8 @@ export default function App() {
   
   // マネジメント用のUI状態
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [aiInstruction, setAiInstruction] = useState('');
+  const [isAiEditing, setIsAiEditing] = useState(false);
   const [newApiKeyName, setNewApiKeyName] = useState('');
   const [newApiKeyValue, setNewApiKeyValue] = useState('');
   
@@ -614,7 +616,27 @@ export default function App() {
       console.error('Semantic search failed, falling back to local search.');
       setSearchVector(null);
     } finally {
-      setIsSearching(false);
+      setIsGeneratingTitle(false);
+    }
+  };
+
+  const handleAiEdit = async (instruction: string) => {
+    if (!instruction.trim()) return;
+    const apiKeyToUse = apiKeys.find(ak => ak.id === selectedApiKeyId)?.key || defaultApiKey;
+    if (!apiKeyToUse && !isEncrypted) {
+      setError('AI機能を使用するにはAPIキーの設定が必要です');
+      return;
+    }
+
+    setIsAiEditing(true);
+    try {
+      const result = await editNoteWithAI(newNoteText, instruction, apiKeyToUse);
+      setNewNoteText(result);
+      setAiInstruction('');
+    } catch (err: any) {
+      setError('AI編集に失敗しました: ' + err.message);
+    } finally {
+      setIsAiEditing(false);
     }
   };
 
@@ -1464,6 +1486,30 @@ export default function App() {
                <div className="hidden sm:block">CHARS: {newNoteText.length}</div>
             </div>
             
+            <div className="flex-1 flex items-center justify-center gap-4 px-6">
+              <div className="relative flex-1 max-w-xl group">
+                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                  <BrainCircuit className={`w-4 h-4 ${isAiEditing ? 'text-fuchsia-500 animate-pulse' : 'text-cyan-700'}`} />
+                </div>
+                <input 
+                  type="text"
+                  placeholder={isAiEditing ? "AI 🧠 プロトコル実行中..." : "AIへの指示 (例: 要約して、箇条書きに、英語にして...)"}
+                  className="w-full bg-black/50 border border-cyan-900 focus:border-fuchsia-500 p-2 pl-10 text-xs text-cyan-100 outline-none transition-all"
+                  value={aiInstruction}
+                  onChange={(e) => setAiInstruction(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAiEdit(aiInstruction)}
+                  disabled={isAiEditing}
+                />
+                <button 
+                  onClick={() => handleAiEdit(aiInstruction)}
+                  disabled={isAiEditing || !aiInstruction.trim()}
+                  className="absolute right-1 top-1 bottom-1 px-3 bg-fuchsia-900/30 text-fuchsia-500 hover:bg-fuchsia-500 hover:text-white transition-all text-[0.6rem] font-bold uppercase disabled:opacity-30"
+                >
+                  実行
+                </button>
+              </div>
+            </div>
+
             <div className="flex gap-4">
               <label className="flex items-center gap-2 px-6 py-3 bg-zinc-950 text-cyan-600 hover:text-cyan-300 transition-all border border-cyan-900 cursor-pointer text-xs font-bold tracking-widest uppercase">
                 <Paperclip className="w-4 h-4" />

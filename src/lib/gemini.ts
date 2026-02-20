@@ -178,3 +178,41 @@ export const generateTags = async (
       .slice(0, 5);
   });
 };
+
+/**
+ * Gemini APIを使用してユーザーの指示に従ってテキストを編集します。
+ */
+export const editNoteWithAI = async (
+  text: string,
+  instruction: string,
+  apiKeyToUse: string,
+  modelId: string = 'gemini-2.0-flash-lite'
+): Promise<string> => {
+  return withRetry(async () => {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKeyToUse}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: `あなたは高度なテキストエディタAIです。
+以下の「対象テキスト」を、ユーザーの「指示」に従って編集してください。
+出力は編集後のテキストのみを返し、解説や挨拶などは一切含めないでください。
+マークダウン形式は維持、または指示があれば適切に適用してください。
+
+対象テキスト:
+${text}
+
+ユーザーの指示:
+${instruction}` }]
+        }]
+      })
+    });
+
+    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+    const data = await response.json();
+    if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+      throw new Error('編集に失敗しました');
+    }
+    return data.candidates[0].content.parts[0].text.trim();
+  });
+};
