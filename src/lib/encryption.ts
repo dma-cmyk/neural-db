@@ -116,7 +116,7 @@ export const base64ToBuffer = (base64: string): ArrayBuffer => {
  * 現状のブラウザ環境では、mnemonicを暗号化してlocalStorageに保存し、
  * 生体認証の成功を持ってその値を「取り出せる」ようにするラッパーとして機能します。
  */
-export const registerBiometric = async (mnemonic: string, vaultId: string): Promise<void> => {
+export const registerBiometric = async (mnemonic: string, vaultId: string, displayName?: string): Promise<void> => {
   if (!window.PublicKeyCredential) {
     throw new Error('このブラウザは生体認証をサポートしていません');
   }
@@ -132,8 +132,8 @@ export const registerBiometric = async (mnemonic: string, vaultId: string): Prom
     },
     user: {
       id: userID,
-      name: `user-${vaultId}`,
-      displayName: `Neural User (${vaultId.slice(0, 4)})`,
+      name: displayName || `user-${vaultId}`,
+      displayName: displayName || `Neural User (${vaultId.slice(0, 4)})`,
     },
     pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
     authenticatorSelection: {

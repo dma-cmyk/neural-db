@@ -15,6 +15,7 @@ import { DiffView } from './components/DiffView';
 import { extractUrls, fetchLinkMetadata, LinkMetadata } from './lib/linkMetadata';
 import { NeuralLink } from './components/NeuralLink';
 import { deriveKeyFromMnemonic, encryptData, decryptData, deriveVaultId, registerBiometric, isBiometricAvailable } from './lib/encryption';
+import { generateUniqueName } from './lib/naming';
 
 const defaultApiKey = ""; // 実行環境から自動的に提供されます
 
@@ -116,6 +117,7 @@ export default function App() {
   });
   const [isLocked, setIsLocked] = useState<boolean>(true);
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
+  const [editingProfileName, setEditingProfileName] = useState('');
   
   const inputRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -172,10 +174,19 @@ export default function App() {
             
             // プロファイル一覧を更新
             setProfiles(prev => {
-              const existing = prev.find(p => p.vaultId === vaultId);
-              const updated = existing 
-                ? prev.map(p => p.vaultId === vaultId ? { ...p, lastActive: new Date().toISOString() } : p)
-                : [...prev, { vaultId, name: `User_${vaultId.slice(0, 4)}`, lastActive: new Date().toISOString() }];
+              const saved = localStorage.getItem('neural_db_profiles');
+              const currentProfiles = saved ? JSON.parse(saved) : prev;
+              const existing = currentProfiles.find((p: any) => p.vaultId === vaultId);
+              
+              let updated;
+              if (existing) {
+                // すでに名前がある場合は、最終アクティブ日時だけ更新（名前は既存を優先）
+                updated = currentProfiles.map((p: any) => p.vaultId === vaultId ? { ...p, lastActive: new Date().toISOString() } : p);
+              } else {
+                // 初めてのログインなら名前を生成
+                const newName = generateUniqueName(currentProfiles.map((p: any) => p.name));
+                updated = [...currentProfiles, { vaultId, name: newName, lastActive: new Date().toISOString() }];
+              }
               
               localStorage.setItem('neural_db_profiles', JSON.stringify(updated));
               return updated;
@@ -747,6 +758,22 @@ export default function App() {
     setError('ユーザーデータが完全に消去されました。');
   };
 
+  const handleRenameProfile = () => {
+    if (!vaultId || !editingProfileName.trim()) return;
+    
+    setProfiles(prev => {
+      const updated = prev.map(p => p.vaultId === vaultId ? { ...p, name: editingProfileName.trim() } : p);
+      localStorage.setItem('neural_db_profiles', JSON.stringify(updated));
+      return updated;
+    });
+    alert('プロファイル名を変更しました。');
+  };
+
+  const currentProfile = profiles.find(p => p.vaultId === vaultId);
+  useEffect(() => {
+    if (currentProfile) setEditingProfileName(currentProfile.name);
+  }, [currentProfile, isApiKeyModalOpen]);
+
   const handleToggleEncryption = () => {
     if (!masterKey && isEncrypted) return;
     setIsEncrypted(!isEncrypted);
@@ -759,10 +786,16 @@ export default function App() {
     }
 
     try {
-      await registerBiometric(masterMnemonic, vaultId);
-      alert('生体認証を登録しました。次回からこのデバイスで生体認証が利用可能です。');
+      // 最新のプロファイル情報を反映させる
+      const saved = localStorage.getItem('neural_db_profiles');
+      const latestProfiles = saved ? JSON.parse(saved) : profiles;
+      if (saved) setProfiles(latestProfiles);
+
+      const currentName = latestProfiles.find((p: any) => p.vaultId === vaultId)?.name;
+      await registerBiometric(masterMnemonic, vaultId, currentName);
+      alert('生体認証を登録しました。');
       
-      // プロファイルを更新して、生体認証が有効であることを示す（任意）
+      // 状態をさらに更新
       setProfiles(prev => {
         const updated = prev.map(p => p.vaultId === vaultId ? { ...p, hasBiometric: true } : p);
         localStorage.setItem('neural_db_profiles', JSON.stringify(updated));
@@ -1076,6 +1109,29 @@ export default function App() {
                       </button>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* プロファイル設定 */}
+              <div className="space-y-4 mb-8 pt-4 border-t border-fuchsia-900/30">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[0.6rem] text-fuchsia-500 tracking-widest mb-1">Identity / 自己識別</span>
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="text" 
+                      placeholder="プロファイル名..." 
+                      className="bg-black border border-fuchsia-900/50 p-2 text-xs text-cyan-400 outline-none focus:border-fuchsia-500 flex-1 font-mono"
+                      value={editingProfileName}
+                      onChange={(e) => setEditingProfileName(e.target.value)}
+                    />
+                    <button 
+                      onClick={handleRenameProfile}
+                      className="bg-cyan-900/40 text-cyan-400 px-4 py-2 text-[0.6rem] font-bold border border-cyan-500/50 hover:bg-cyan-500 hover:text-cyan-950 transition-all uppercase tracking-widest"
+                    >
+                      変更
+                    </button>
+                  </div>
+                  <p className="text-[0.5rem] text-zinc-600 italic mt-1 font-mono uppercase">Vault_ID: {vaultId}</p>
                 </div>
               </div>
 

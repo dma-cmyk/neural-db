@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Fingerprint, Clipboard, ShieldAlert, Key, Zap, Check, X, ShieldCheck, Download, Camera, Plus, ChevronLeft } from 'lucide-react';
-import { generateMnemonic, authenticateBiometric, isBiometricAvailable } from '../lib/encryption';
+import { Fingerprint, Clipboard, ShieldAlert, Key, Zap, Check, X, ShieldCheck, Download, Camera, Plus, ChevronLeft, Edit3 } from 'lucide-react';
+import { generateMnemonic, authenticateBiometric, isBiometricAvailable, registerBiometric, deriveVaultId } from '../lib/encryption';
+import { generateUniqueName } from '../lib/naming';
 
 interface UserProfile {
   vaultId: string;
@@ -22,6 +23,7 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
     profiles.length > 0 ? 'biometric' : 'home'
   );
   const [mnemonic, setMnemonic] = useState('');
+  const [profileName, setProfileName] = useState('');
   const [generatedMnemonic, setGeneratedMnemonic] = useState('');
   const [error, setError] = useState('');
   const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(() => {
@@ -79,8 +81,38 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
     onUnlock(mnemonic.trim());
   };
 
-  const handleSetupComplete = () => {
-    onUnlock(generatedMnemonic);
+  const handleSetupComplete = async () => {
+    if (!generatedMnemonic) return;
+    setIsVerifying(true);
+    setError('');
+    try {
+      const vaultId = await deriveVaultId(generatedMnemonic);
+      const finalName = profileName.trim() || generateUniqueName(profiles.map(p => p.name));
+      
+      const isBio = await isBiometricAvailable();
+      if (isBio) {
+        await registerBiometric(generatedMnemonic, vaultId, finalName);
+      }
+      
+      // プロファイル情報を作成
+      const newProfile: UserProfile = {
+        vaultId,
+        name: finalName,
+        lastActive: new Date().toISOString()
+      };
+      
+      // 親コンポーネントの状態更新は onUnlock 内で行われることが期待されるが、
+      // profiles の永続化のために localStorage を更新
+      const updatedProfiles = [...profiles, newProfile];
+      localStorage.setItem('neural_db_profiles', JSON.stringify(updatedProfiles));
+      
+      onUnlock(generatedMnemonic);
+    } catch (err: any) {
+      console.error('Setup failed:', err);
+      setError(err.message || '初期化に失敗しました');
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const renderHome = () => (
@@ -238,6 +270,20 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
 
       {isRegistering ? (
         <div className="space-y-6">
+          <div className="space-y-4">
+            <div className="p-3 bg-cyan-900/10 border border-cyan-800/40 rounded">
+              <label className="text-[0.6rem] text-cyan-600 uppercase tracking-widest block mb-2 font-bold">Protocol: Identity / 識別名</label>
+              <input 
+                type="text"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                placeholder="名称を入力（空欄で自動生成）"
+                className="w-full bg-black/40 border border-cyan-900/50 rounded p-2 text-xs text-cyan-100 placeholder:text-cyan-900 focus:outline-none focus:border-cyan-500 transition-all font-mono"
+              />
+              <p className="mt-1.5 text-[0.5rem] text-cyan-800 italic">※識別名は後で変更可能です。空欄時はランダム生成されます。</p>
+            </div>
+          </div>
+
           <div className="bg-cyan-950/20 border border-cyan-500/30 p-4 rounded-sm">
             <p className="text-[0.65rem] text-cyan-400 font-bold mb-4 uppercase tracking-[0.2em]">新規シードフレーズ生成</p>
             <div className="grid grid-cols-3 gap-2">
