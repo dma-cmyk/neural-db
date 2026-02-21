@@ -131,14 +131,19 @@ export const registerBiometric = async (mnemonic: string, vaultId: string, displ
       id: window.location.hostname || "localhost",
     },
     user: {
-      // Hex文字列からバイナリ(32バイト)に変換して互換性を高める
-      id: base64ToBuffer(btoa(String.fromCharCode(...(vaultId.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || [])))),
+      // シンプルなバイナリ形式にして互換性を最大化
+      id: new Uint8Array(vaultId.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []),
       name: displayName || vaultId,
       displayName: displayName || `User (${vaultId.slice(0, 4)})`,
     },
-    pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
+    pubKeyCredParams: [
+      { alg: -7, type: "public-key" },    // ES256
+      { alg: -257, type: "public-key" },  // RS256
+      { alg: -37, type: "public-key" },   // PS256
+      { alg: -8, type: "public-key" },    // Ed25519
+    ],
     authenticatorSelection: {
-      userVerification: "required",
+      userVerification: "preferred", // 'required' だとスマホ側でエラーになりやすいため緩和
       residentKey: "required",
       requireResidentKey: true,
     },
