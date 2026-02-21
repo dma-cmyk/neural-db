@@ -206,6 +206,16 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
           </button>
         ))}
       </div>
+      
+      <button
+        onClick={() => {
+          setSelectedProfile(null);
+          setMode('biometric');
+        }}
+        className="w-full mt-4 py-3 bg-cyan-600/10 border border-cyan-500/30 text-cyan-400 text-[0.6rem] font-bold tracking-[0.2em] hover:bg-cyan-600/20 transition-all uppercase flex items-center justify-center gap-2"
+      >
+        <Fingerprint className="w-3 h-3 text-cyan-500" /> 自動認識 / 一括スキャン
+      </button>
     </div>
   );
 
