@@ -131,7 +131,8 @@ export const registerBiometric = async (mnemonic: string, vaultId: string, displ
       id: window.location.hostname || "localhost",
     },
     user: {
-      id: new TextEncoder().encode(vaultId),
+      // Hex文字列からバイナリ(32バイト)に変換して互換性を高める
+      id: base64ToBuffer(btoa(String.fromCharCode(...(vaultId.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || [])))),
       name: displayName || vaultId,
       displayName: displayName || `User (${vaultId.slice(0, 4)})`,
     },
