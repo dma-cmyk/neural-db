@@ -139,6 +139,8 @@ export const registerBiometric = async (mnemonic: string, vaultId: string): Prom
     authenticatorSelection: {
       authenticatorAttachment: "platform",
       userVerification: "required",
+      residentKey: "required",
+      requireResidentKey: true,
     },
     timeout: 60000,
     attestation: "none",
@@ -162,24 +164,32 @@ export const registerBiometric = async (mnemonic: string, vaultId: string): Prom
 
 /**
  * 生体認証を実行し、保存されているシードフレーズを返します。
+ * vaultIds が渡された場合、それらすべてを照合対象（allowCredentials）にします。
  */
-export const authenticateBiometric = async (vaultId: string): Promise<string> => {
-  const credIdBase64 = localStorage.getItem(`biometric_cred_${vaultId}`);
-  const mnemonic = localStorage.getItem(`biometric_data_${vaultId}`);
-
-  if (!credIdBase64 || !mnemonic) {
-    throw new Error('このVaultには生体認証が登録されていません');
+export const authenticateBiometric = async (vaultIds?: string[]): Promise<{ mnemonic: string, vaultId: string }> => {
+  if (!vaultIds || vaultIds.length === 0) {
+    // 完全にID指定なし（Discoverable Credentials）での取得を試みる
+    return await authenticateDiscoverable();
   }
 
-  const credId = base64ToBuffer(credIdBase64);
+  const allowCredentials = vaultIds.map(id => {
+    const credIdBase64 = localStorage.getItem(`biometric_cred_${id}`);
+    if (!credIdBase64) return null;
+    return {
+      id: base64ToBuffer(credIdBase64),
+      type: 'public-key' as const,
+    };
+  }).filter((c): c is { id: ArrayBuffer, type: 'public-key' } => c !== null);
+
+  if (allowCredentials.length === 0) {
+    throw new Error('生体認証可能なユーザーが見つかりません');
+  }
+
   const challenge = window.crypto.getRandomValues(new Uint8Array(32));
 
   const assertionOptions: PublicKeyCredentialRequestOptions = {
     challenge,
-    allowCredentials: [{
-      id: credId,
-      type: 'public-key',
-    }],
+    allowCredentials,
     userVerification: "required",
     timeout: 60000,
   };
@@ -192,7 +202,53 @@ export const authenticateBiometric = async (vaultId: string): Promise<string> =>
     throw new Error('生体認証に失敗しました');
   }
 
-  return mnemonic;
+  // 認証された Credential ID から、対応する vaultId を特定する
+  const authenticatedBase64 = bufferToBase64(assertion.rawId);
+  const matchedVaultId = vaultIds.find(id => localStorage.getItem(`biometric_cred_${id}`) === authenticatedBase64);
+
+  if (!matchedVaultId) {
+    throw new Error('認証に成功しましたが、対応するVaultが見つかりません');
+  }
+
+  const mnemonic = localStorage.getItem(`biometric_data_${matchedVaultId}`);
+  if (!mnemonic) throw new Error('シードフレーズの復元に失敗しました');
+
+  return { mnemonic, vaultId: matchedVaultId };
+};
+
+/**
+ * ID指定なしで生体認証（Discoverable Credentials）を実行します。
+ */
+const authenticateDiscoverable = async (): Promise<{ mnemonic: string, vaultId: string }> => {
+  const challenge = window.crypto.getRandomValues(new Uint8Array(32));
+  
+  const assertionOptions: PublicKeyCredentialRequestOptions = {
+    challenge,
+    userVerification: "required",
+    timeout: 60000,
+  };
+
+  const assertion = await navigator.credentials.get({
+    publicKey: assertionOptions,
+  }) as PublicKeyCredential;
+
+  if (!assertion) throw new Error('認証に失敗しました');
+
+  const authenticatedBase64 = bufferToBase64(assertion.rawId);
+  
+  // localStorage 内を全検索して一致する vaultId を探す
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith('biometric_cred_')) {
+      if (localStorage.getItem(key) === authenticatedBase64) {
+        const vaultId = key.replace('biometric_cred_', '');
+        const mnemonic = localStorage.getItem(`biometric_data_${vaultId}`);
+        if (mnemonic) return { mnemonic, vaultId };
+      }
+    }
+  }
+
+  throw new Error('未知の認証情報です');
 };
 
 /**

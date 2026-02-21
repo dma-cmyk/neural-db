@@ -19,7 +19,7 @@ interface NeuralLinkProps {
  */
 export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup, profiles }) => {
   const [mode, setMode] = useState<'home' | 'auth_selection' | 'mnemonic' | 'biometric' | 'profile_list'>(
-    'home'
+    profiles.length > 0 ? 'biometric' : 'home'
   );
   const [mnemonic, setMnemonic] = useState('');
   const [generatedMnemonic, setGeneratedMnemonic] = useState('');
@@ -43,27 +43,27 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
 
   // モードが生体認証になったら即座に開始
   useEffect(() => {
-    if (mode === 'biometric' && selectedProfile && !isVerifying) {
+    if (mode === 'biometric' && !isVerifying) {
       handleBiometricAuth();
     }
-  }, [mode, selectedProfile]);
+  }, [mode]);
 
   const handleBiometricAuth = async () => {
-    if (!selectedProfile) {
-      setError('認証対象のユーザーを選択してください');
-      setMode('profile_list');
-      return;
-    }
-
     setIsVerifying(true);
     setError('');
 
     try {
-      const recoveredMnemonic = await authenticateBiometric(selectedProfile.vaultId);
+      // 登録されている全VaultのIDを渡して一括検索
+      const vaultIds = profiles.map(p => p.vaultId);
+      const { mnemonic: recoveredMnemonic, vaultId } = await authenticateBiometric(vaultIds);
+      
+      // プロファイルが見つかった場合は選択状態を更新
+      const matchedProfile = profiles.find(p => p.vaultId === vaultId);
+      if (matchedProfile) setSelectedProfile(matchedProfile);
+      
       onUnlock(recoveredMnemonic);
     } catch (err: any) {
       console.error('Biometric auth failed:', err);
-      // ユーザーによるキャンセルなどはエラーとして表示するが、モードは維持する
       setError(err.message || '認証に失敗しました');
     } finally {
       setIsVerifying(false);
@@ -316,9 +316,16 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
       </div>
 
       <div className="space-y-4">
+        {selectedProfile && (
+          <div className="mb-4 animate-in fade-in duration-500">
+            <span className="text-[0.6rem] text-cyan-600 uppercase tracking-widest block mb-1">Last Active User</span>
+            <div className="text-sm font-bold text-cyan-100">{selectedProfile.name}</div>
+          </div>
+        )}
+        
         <h3 className="text-sm font-mono text-cyan-100 uppercase tracking-widest">生体認証の応答を待機中...</h3>
         <p className="text-[0.6rem] text-cyan-700 max-w-xs mx-auto leading-relaxed">
-          デバイスのセンサーに指を置くか、顔認証を行ってください。
+          デバイスのセンサーに触れてください。登録済みのユーザーとして自動的にログインします。
         </p>
         
         {error && (
@@ -327,22 +334,20 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
           </p>
         )}
         
-        {error && (
-          <button 
-            onClick={handleBiometricAuth}
-            className="mt-4 px-6 py-2 bg-cyan-900/30 border border-cyan-500 text-cyan-400 text-[0.6rem] font-bold uppercase tracking-widest hover:bg-cyan-500/20 transition-all"
-          >
-            再試行
-          </button>
-        )}
+        <button 
+          onClick={handleBiometricAuth}
+          className="mt-6 w-full py-4 bg-cyan-600/20 border border-cyan-500 text-cyan-400 text-xs font-black tracking-[0.3em] hover:bg-cyan-500 hover:text-cyan-950 transition-all uppercase shadow-[0_4px_20px_rgba(6,182,212,0.15)]"
+        >
+          認証を開始
+        </button>
         
-        <div className="flex justify-center gap-1">
+        <div className="pt-6 flex justify-center gap-1">
           {[1,2,3,4,5].map(i => (
             <div key={i} className={`w-1 h-3 ${i % 2 === 0 ? 'bg-cyan-500' : 'bg-cyan-900'} animate-pulse`} style={{ animationDelay: `${i * 0.2}s` }}></div>
           ))}
         </div>
         
-        <p className="text-[0.5rem] text-cyan-950 font-mono mt-8">PROTOCOL_ID: WEBAUTHN_L2_ENCRYPT_WRAP</p>
+        <p className="text-[0.5rem] text-cyan-950 font-mono mt-8">PROTOCOL_ID: WEBAUTHN_MULTI_SCAN_V2</p>
       </div>
       
       {/* 実際の実装ではここで window.crypto.subtle の WebAuthn 呼び出しを行う */}
