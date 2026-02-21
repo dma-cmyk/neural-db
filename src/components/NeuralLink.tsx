@@ -43,12 +43,26 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
     }
   }, [isInitialSetup, isRegistering, generatedMnemonic]);
 
-  // モードが生体認証になったら即座に開始
+  // モードの初期制御
+  useEffect(() => {
+    if (mode === 'home') {
+      if (profiles.length > 1) {
+        setMode('profile_list');
+      } else if (profiles.length === 1) {
+        setSelectedProfile(profiles[0]);
+        setMode('biometric');
+      }
+    }
+  }, [mode, profiles]);
+
+  // モードが生体認証になったら即座に開始（単一ユーザーまたは選択済みの場合のみ）
   useEffect(() => {
     if (mode === 'biometric' && !isVerifying) {
-      handleBiometricAuth();
+      if (profiles.length === 1 || selectedProfile) {
+        handleBiometricAuth();
+      }
     }
-  }, [mode]);
+  }, [mode, selectedProfile]);
 
   const handleBiometricAuth = async () => {
     if (isVerifying) return; // 二重呼び出し防止
@@ -56,8 +70,8 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
     setError('');
 
     try {
-      // 登録されている全VaultのIDを渡して一括検索
-      const vaultIds = profiles.map(p => p.vaultId);
+      // 選択済みのプロファイルがあればそのIDのみ、なければ全VaultのIDを渡す
+      const vaultIds = selectedProfile ? [selectedProfile.vaultId] : profiles.map(p => p.vaultId);
       const { mnemonic: recoveredMnemonic, vaultId } = await authenticateBiometric(vaultIds);
       
       // プロファイルが見つかった場合は選択状態を更新
