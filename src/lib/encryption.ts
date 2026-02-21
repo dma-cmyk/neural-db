@@ -131,13 +131,12 @@ export const registerBiometric = async (mnemonic: string, vaultId: string, displ
       id: window.location.hostname || "localhost",
     },
     user: {
-      id: userID,
-      name: displayName || `user-${vaultId}`,
-      displayName: displayName || `Neural User (${vaultId.slice(0, 4)})`,
+      id: new TextEncoder().encode(vaultId),
+      name: displayName || vaultId,
+      displayName: displayName || `User (${vaultId.slice(0, 4)})`,
     },
     pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
     authenticatorSelection: {
-      authenticatorAttachment: "platform",
       userVerification: "required",
       residentKey: "required",
       requireResidentKey: true,

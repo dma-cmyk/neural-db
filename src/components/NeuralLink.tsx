@@ -51,6 +51,7 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
   }, [mode]);
 
   const handleBiometricAuth = async () => {
+    if (isVerifying) return; // 二重呼び出し防止
     setIsVerifying(true);
     setError('');
 
@@ -394,9 +395,22 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
         </div>
         
         <p className="text-[0.5rem] text-cyan-950 font-mono mt-8">PROTOCOL_ID: WEBAUTHN_MULTI_SCAN_V2</p>
+
+        <div className="mt-8 border-t border-cyan-900/30 pt-4 flex justify-between items-center">
+          <button 
+            onClick={() => setMode('profile_list')}
+            className="text-[0.6rem] text-cyan-600 hover:text-cyan-400 transition-colors uppercase tracking-widest flex items-center gap-1"
+          >
+            <Camera className="w-3 h-3" /> プロファイル選択
+          </button>
+          <button 
+            onClick={() => setMode('home')}
+            className="text-[0.6rem] text-zinc-600 hover:text-zinc-400 transition-colors uppercase tracking-widest"
+          >
+            キャンセル
+          </button>
+        </div>
       </div>
-      
-      {/* 実際の実装ではここで window.crypto.subtle の WebAuthn 呼び出しを行う */}
     </div>
   );
 
