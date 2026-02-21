@@ -43,17 +43,12 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
     }
   }, [isInitialSetup, isRegistering, generatedMnemonic]);
 
-  // モードの初期制御
+  // モードの初期制御（プロファイルがあれば一覧を優先）
   useEffect(() => {
-    if (mode === 'home') {
-      if (profiles.length > 1) {
-        setMode('profile_list');
-      } else if (profiles.length === 1) {
-        setSelectedProfile(profiles[0]);
-        setMode('biometric');
-      }
+    if (mode === 'home' && profiles.length > 0) {
+      setMode('profile_list');
     }
-  }, [mode, profiles]);
+  }, [mode, profiles.length]);
 
   // モードが生体認証になったら即座に開始（単一ユーザーまたは選択済みの場合のみ）
   useEffect(() => {
@@ -197,7 +192,7 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
             key={profile.vaultId}
             onClick={() => {
               setSelectedProfile(profile);
-              setMode('auth_selection');
+              setMode('biometric');
             }}
             className="w-full group relative flex items-center justify-between p-4 bg-zinc-900 border border-cyan-900/40 hover:border-fuchsia-500/50 hover:bg-fuchsia-500/5 transition-all text-left"
           >
