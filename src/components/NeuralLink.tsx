@@ -20,17 +20,14 @@ interface NeuralLinkProps {
  */
 export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup, profiles }) => {
   const [mode, setMode] = useState<'home' | 'auth_selection' | 'mnemonic' | 'biometric' | 'profile_list'>(
-    profiles.length > 0 ? 'biometric' : 'home'
+    profiles.length === 1 ? 'biometric' : (profiles.length > 1 ? 'profile_list' : 'home')
   );
   const [mnemonic, setMnemonic] = useState('');
   const [profileName, setProfileName] = useState('');
   const [generatedMnemonic, setGeneratedMnemonic] = useState('');
   const [error, setError] = useState('');
   const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(() => {
-    // デフォルトで最後にアクティブだったプロファイルを選択
-    if (profiles.length > 0) {
-      return [...profiles].sort((a, b) => new Date(b.lastActive).getTime() - new Date(a.lastActive).getTime())[0];
-    }
+    if (profiles.length === 1) return profiles[0];
     return null;
   });
   const [isRegistering, setIsRegistering] = useState(false);
@@ -43,12 +40,6 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
     }
   }, [isInitialSetup, isRegistering, generatedMnemonic]);
 
-  // モードの初期制御（プロファイルがあれば一覧を優先）
-  useEffect(() => {
-    if (mode === 'home' && profiles.length > 0) {
-      setMode('profile_list');
-    }
-  }, [mode, profiles.length]);
 
   // モードが生体認証になったら即座に開始（単一ユーザーまたは選択済みの場合のみ）
   useEffect(() => {

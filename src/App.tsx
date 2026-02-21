@@ -720,6 +720,7 @@ export default function App() {
   const handleLogout = () => {
     setMasterKey(null);
     setVaultId(null);
+    setMasterMnemonic(null);
     setNotes([]);
     setApiKeys([]);
     setSelectedApiKeyId(null);
