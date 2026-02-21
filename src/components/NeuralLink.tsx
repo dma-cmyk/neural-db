@@ -20,7 +20,7 @@ interface NeuralLinkProps {
  */
 export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup, profiles }) => {
   const [mode, setMode] = useState<'home' | 'auth_selection' | 'mnemonic' | 'biometric' | 'profile_list'>(
-    profiles.length === 1 ? 'biometric' : (profiles.length > 1 ? 'profile_list' : 'home')
+    profiles.length > 0 ? 'profile_list' : 'home'
   );
   const [mnemonic, setMnemonic] = useState('');
   const [profileName, setProfileName] = useState('');
@@ -41,14 +41,12 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
   }, [isInitialSetup, isRegistering, generatedMnemonic]);
 
 
-  // モードが生体認証になったら即座に開始（単一ユーザーまたは選択済みの場合のみ）
+  // モードが生体認証になったら即座に開始
   useEffect(() => {
     if (mode === 'biometric' && !isVerifying) {
-      if (profiles.length === 1 || selectedProfile) {
-        handleBiometricAuth();
-      }
+      handleBiometricAuth();
     }
-  }, [mode, selectedProfile]);
+  }, [mode]);
 
   const handleBiometricAuth = async () => {
     if (isVerifying) return; // 二重呼び出し防止
@@ -82,31 +80,30 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
     onUnlock(mnemonic.trim());
   };
 
+  /**
+   * セットアップ完了処理
+   */
   const handleSetupComplete = async () => {
     if (!generatedMnemonic) return;
+    
     setIsVerifying(true);
     setError('');
+    
     try {
       const vaultId = await deriveVaultId(generatedMnemonic);
       const finalName = profileName.trim() || generateUniqueName(profiles.map(p => p.name));
       
-      const isBio = await isBiometricAvailable();
-      if (isBio) {
-        await registerBiometric(generatedMnemonic, vaultId, finalName);
-      }
-      
-      // プロファイル情報を作成
+      // プロファイル作成
       const newProfile: UserProfile = {
         vaultId,
         name: finalName,
         lastActive: new Date().toISOString()
       };
       
-      // 親コンポーネントの状態更新は onUnlock 内で行われることが期待されるが、
-      // profiles の永続化のために localStorage を更新
       const updatedProfiles = [...profiles, newProfile];
       localStorage.setItem('neural_db_profiles', JSON.stringify(updatedProfiles));
       
+      // 成功したら即座にアンロック（生体認証登録は後で行うことも可能）
       onUnlock(generatedMnemonic);
     } catch (err: any) {
       console.error('Setup failed:', err);
@@ -150,7 +147,14 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
         </button>
 
         <button
-          onClick={() => setMode('auth_selection')}
+          onClick={() => {
+            setIsRegistering(false);
+            if (profiles.length > 0) {
+              setMode('profile_list');
+            } else {
+              setMode('mnemonic');
+            }
+          }}
           className="group relative flex items-center justify-between p-5 bg-zinc-900 border border-cyan-900/50 hover:border-cyan-400 hover:bg-cyan-500/5 transition-all overflow-hidden"
         >
           <div className="flex items-center gap-4 z-10">
@@ -168,7 +172,7 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
 
   const renderProfileList = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-      <div className="flex items-center gap-4 mb-4 cursor-pointer hover:text-cyan-300 transition-colors text-cyan-700" onClick={() => setMode('auth_selection')}>
+      <div className="flex items-center gap-4 mb-4 cursor-pointer hover:text-cyan-300 transition-colors text-cyan-700" onClick={() => setMode('home')}>
         <ChevronLeft className="w-4 h-4" />
         <span className="text-[0.6rem] font-bold tracking-widest uppercase">戻る</span>
       </div>
@@ -183,7 +187,7 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
             key={profile.vaultId}
             onClick={() => {
               setSelectedProfile(profile);
-              setMode('biometric');
+              setMode('mnemonic');
             }}
             className="w-full group relative flex items-center justify-between p-4 bg-zinc-900 border border-cyan-900/40 hover:border-fuchsia-500/50 hover:bg-fuchsia-500/5 transition-all text-left"
           >
@@ -198,70 +202,25 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
         ))}
       </div>
       
-      <button
-        onClick={() => {
-          setSelectedProfile(null);
-          setMode('biometric');
-        }}
-        className="w-full mt-4 py-3 bg-cyan-600/10 border border-cyan-500/30 text-cyan-400 text-[0.6rem] font-bold tracking-[0.2em] hover:bg-cyan-600/20 transition-all uppercase flex items-center justify-center gap-2"
-      >
-        <Fingerprint className="w-3 h-3 text-cyan-500" /> 自動認識 / 一括スキャン
-      </button>
-    </div>
-  );
-
-  const renderAuthSelection = () => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-      <div className="flex items-center gap-4 mb-2 cursor-pointer hover:text-cyan-300 transition-colors text-cyan-700" onClick={() => setMode('home')}>
-        <ChevronLeft className="w-4 h-4" />
-        <span className="text-[0.6rem] font-bold tracking-widest uppercase">戻る</span>
-      </div>
-
-      <div className="text-center mb-8">
-        <h2 className="text-lg font-mono text-cyan-100 tracking-[0.1em] font-bold uppercase">Authorization</h2>
-        <p className="text-[0.55rem] text-cyan-700 tracking-widest mt-1 uppercase">認証方法を選択</p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3">
-        <button
-          onClick={() => setMode('biometric')}
-          className="group relative flex items-center justify-between p-4 bg-zinc-900 border border-cyan-900/50 hover:border-cyan-400 hover:bg-cyan-500/10 transition-all overflow-hidden"
-        >
-          <div className="flex items-center gap-4 z-10">
-            <Fingerprint className="w-5 h-5 text-cyan-500 group-hover:text-cyan-300" />
-            <div className="text-left">
-              <div className="text-[0.7rem] font-bold text-cyan-100 uppercase tracking-tighter">生体認証スキャン</div>
-              <div className="text-[0.55rem] text-cyan-700">指紋 / 顔認証でログイン</div>
-            </div>
-          </div>
-          <Zap className="w-4 h-4 text-cyan-900 group-hover:text-cyan-400 transition-colors" />
-        </button>
-
+      <div className="pt-4 space-y-3">
         <button
           onClick={() => {
-            setIsRegistering(false);
+            setSelectedProfile(null);
+            setMode('biometric');
+          }}
+          className="w-full py-3 bg-cyan-600/10 border border-cyan-500/30 text-cyan-400 text-[0.6rem] font-bold tracking-[0.2em] hover:bg-cyan-600/20 transition-all uppercase flex items-center justify-center gap-2"
+        >
+          <Fingerprint className="w-3 h-3 text-cyan-500" /> 生体認証で自動認識
+        </button>
+        <button
+          onClick={() => {
+            setSelectedProfile(null);
             setMode('mnemonic');
           }}
-          className="group relative flex items-center justify-between p-4 bg-zinc-900 border border-cyan-900/50 hover:border-cyan-400 hover:bg-cyan-500/10 transition-all overflow-hidden"
+          className="w-full py-2 text-zinc-600 hover:text-cyan-500 text-[0.55rem] font-bold tracking-[0.2em] uppercase transition-colors"
         >
-          <div className="flex items-center gap-4 z-10">
-            <Key className="w-5 h-5 text-cyan-500 group-hover:text-cyan-300" />
-            <div className="text-left">
-              <div className="text-[0.7rem] font-bold text-cyan-100 uppercase tracking-tighter">シードフレーズ</div>
-              <div className="text-[0.55rem] text-cyan-700">12単語のリカバリーキー</div>
-            </div>
-          </div>
-          <Zap className="w-4 h-4 text-cyan-900 group-hover:text-cyan-400 transition-colors" />
+          直接キーフレーズを入力してログイン
         </button>
-
-        {profiles.length > 0 && (
-          <button
-            onClick={() => setMode('profile_list')}
-            className="w-full mt-4 py-2 text-[0.6rem] text-zinc-600 hover:text-cyan-500 transition-colors uppercase tracking-[0.2em] flex items-center justify-center gap-2"
-          >
-            <Camera className="w-3 h-3" /> 最近のIDを表示
-          </button>
-        )}
       </div>
     </div>
   );
@@ -270,7 +229,7 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
       <div className="flex items-center gap-4 mb-6 cursor-pointer hover:text-cyan-300 transition-colors text-cyan-700" 
            onClick={() => {
-             const prevMode = isRegistering ? 'home' : 'auth_selection';
+             const prevMode = isRegistering ? 'home' : (profiles.length > 0 ? 'profile_list' : 'home');
              setIsRegistering(false);
              setGeneratedMnemonic('');
              setMode(prevMode);
@@ -279,91 +238,104 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
         <span className="text-[0.6rem] font-bold tracking-widest uppercase">戻る</span>
       </div>
 
+      <div className="text-center mb-4">
+        <h2 className="text-lg font-mono text-cyan-100 tracking-[0.1em] font-bold uppercase">
+          {isRegistering ? 'Initialization' : 'Access Key'}
+        </h2>
+        <p className="text-[0.55rem] text-cyan-700 tracking-widest mt-1 uppercase">
+          {isRegistering ? '新しいシードフレーズの生成' : 'キーフレーズの入力'}
+        </p>
+      </div>
+
       {isRegistering ? (
         <div className="space-y-6">
-          <div className="space-y-4">
-            <div className="p-3 bg-cyan-900/10 border border-cyan-800/40 rounded">
-              <label className="text-[0.6rem] text-cyan-600 uppercase tracking-widest block mb-2 font-bold">Protocol: Identity / 識別名</label>
-              <input 
-                type="text"
-                value={profileName}
-                onChange={(e) => setProfileName(e.target.value)}
-                placeholder="名称を入力（空欄で自動生成）"
-                className="w-full bg-black/40 border border-cyan-900/50 rounded p-2 text-xs text-cyan-100 placeholder:text-cyan-900 focus:outline-none focus:border-cyan-500 transition-all font-mono"
-              />
-              <p className="mt-1.5 text-[0.5rem] text-cyan-800 italic">※識別名は後で変更可能です。空欄時はランダム生成されます。</p>
-            </div>
+          <div className="p-3 bg-cyan-900/10 border border-cyan-800/40 rounded">
+            <label className="text-[0.6rem] text-cyan-600 uppercase tracking-widest block mb-2 font-bold">Protocol: Identity / 識別名</label>
+            <input 
+              type="text"
+              value={profileName}
+              onChange={(e) => setProfileName(e.target.value)}
+              placeholder="名称を入力（空欄で自動生成）"
+              className="w-full bg-black/40 border border-cyan-900/50 rounded p-2 text-xs text-cyan-100 placeholder:text-cyan-900 focus:outline-none focus:border-cyan-500 transition-all font-mono"
+            />
           </div>
 
-          <div className="bg-cyan-950/20 border border-cyan-500/30 p-4 rounded-sm">
-            <p className="text-[0.65rem] text-cyan-400 font-bold mb-4 uppercase tracking-[0.2em]">新規シードフレーズ生成</p>
+          <div className="p-4 bg-zinc-900 border border-fuchsia-500/30 rounded-lg relative group">
             <div className="grid grid-cols-3 gap-2">
-              {generatedMnemonic.split(' ').map((word: string, i: number) => (
-                <div key={i} className="bg-zinc-900/80 border border-cyan-900/50 p-2 text-center text-[0.7rem] font-mono text-cyan-100 relative group">
-                  <span className="absolute top-0 left-1 text-[0.4rem] text-cyan-900">{i + 1}</span>
-                  {word}
+              {generatedMnemonic.split(' ').map((word, i) => (
+                <div key={i} className="text-[0.65rem] font-mono text-fuchsia-100 flex gap-2">
+                  <span className="text-fuchsia-900 w-4">{i + 1}.</span>
+                  <span>{word}</span>
                 </div>
               ))}
             </div>
-            <div className="mt-4 flex flex-col gap-2">
-              <button 
-                onClick={() => {
-                  navigator.clipboard.writeText(generatedMnemonic);
-                  alert('クリップボードにコピーしました。安全な場所に保存してください。');
-                }}
-                className="w-full py-2 bg-zinc-900 border border-cyan-700 text-cyan-400 text-[0.6rem] font-bold tracking-widest hover:bg-cyan-500/10 flex items-center justify-center gap-2"
-              >
-                <Clipboard className="w-3 h-3" /> クリップボードへコピー
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(generatedMnemonic);
+              }}
+              className="absolute top-2 right-2 p-1.5 text-fuchsia-500 hover:text-fuchsia-300 transition-colors"
+              title="コピー"
+            >
+              <Clipboard className="w-4 h-4" />
+            </button>
           </div>
-          
-          <div className="p-4 bg-red-950/20 border border-red-900/50">
-            <div className="flex gap-3">
-              <ShieldAlert className="w-5 h-5 text-red-500 shrink-0" />
-              <div>
-                <p className="text-[0.65rem] text-red-400 font-bold uppercase mb-1 underline">CRITICAL_WARNING</p>
-                <p className="text-[0.55rem] text-red-700 leading-relaxed">
-                  この12単語は金庫の鍵そのものです。紛失するとデータを二度と復元できません。紙に書くか、安全なパスワードマネージャーに保存してください。
-                </p>
-              </div>
-            </div>
+
+          <div className="p-3 bg-red-950/20 border border-red-900/40 rounded flex gap-3 items-start">
+            <ShieldAlert className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <p className="text-[0.6rem] text-red-400 leading-relaxed font-bold uppercase tracking-wider">
+              重要: この12単語はデータのマスターキーです。必ずオフラインで書き留めてください。
+            </p>
           </div>
 
           <button
             onClick={handleSetupComplete}
-            className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-cyan-950 text-xs font-black tracking-[0.3em] transition-all uppercase shadow-[0_4px_20px_rgba(6,182,212,0.3)]"
+            className="w-full py-4 bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold tracking-[0.2em] uppercase transition-all shadow-[0_0_20px_rgba(217,70,239,0.3)] flex items-center justify-center gap-3"
           >
-            フレーズを安全に保存しました
+            <Check className="w-5 h-5" /> メモしました。利用を開始する
           </button>
         </div>
       ) : (
-        <form onSubmit={handleMnemonicSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-[0.6rem] text-cyan-700 uppercase font-bold tracking-widest">リカバリー単語を入力 (12単語)</label>
-            <textarea
-              value={mnemonic}
-              onChange={(e) => setMnemonic(e.target.value)}
-              placeholder="apple banana cherry..."
-              className="w-full h-32 bg-zinc-900/80 border border-cyan-900/50 text-cyan-100 p-4 font-mono text-sm focus:border-cyan-400 outline-none transition-all placeholder:text-cyan-950"
-            />
-          </div>
-          {error && <p className="text-red-500 text-[0.6rem] font-bold animate-pulse uppercase">Error: {error}</p>}
-          <button
-            type="submit"
-            className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-cyan-950 text-xs font-black tracking-[0.3em] transition-all uppercase shadow-[0_4px_20px_rgba(6,182,212,0.3)]"
-          >
-            Vaultを復号
-          </button>
-        </form>
+        <div className="space-y-6">
+          <form onSubmit={handleMnemonicSubmit} className="space-y-4">
+            <div className="relative">
+              <textarea
+                className="w-full bg-zinc-900 border border-cyan-900/50 p-4 text-xs font-mono text-cyan-100 focus:border-cyan-400 outline-none h-24 placeholder-cyan-900 transition-all"
+                placeholder="12単語のフレーズをスペース区切りで入力..."
+                value={mnemonic}
+                onChange={(e) => setMnemonic(e.target.value)}
+              />
+              <Key className="absolute bottom-3 right-3 w-4 h-4 text-cyan-900" />
+            </div>
+
+            {error && <p className="text-red-500 text-[0.55rem] font-bold animate-pulse uppercase">ERROR: {error}</p>}
+
+            <button
+              type="submit"
+              className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold tracking-[0.2em] uppercase transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+            >
+              ボルトを解除
+            </button>
+          </form>
+
+          {profiles.length > 0 && (
+            <div className="pt-4 border-t border-cyan-900/30">
+              <button
+                onClick={() => setMode('biometric')}
+                className="w-full py-3 border border-cyan-900/50 text-cyan-600 font-bold tracking-[0.2em] uppercase transition-all hover:bg-cyan-900/10 flex items-center justify-center gap-2"
+              >
+                <Fingerprint className="w-4 h-4" /> 生体認証で簡単ログイン
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
 
   const renderBiometric = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 text-center py-10">
-      <div className="flex items-center gap-4 mb-6 cursor-pointer hover:text-cyan-300 transition-colors text-cyan-700 text-left" onClick={() => setMode('auth_selection')}>
-        <X className="w-4 h-4" />
+      <div className="flex items-center gap-4 mb-6 cursor-pointer hover:text-cyan-300 transition-colors text-cyan-700 text-left" onClick={() => setMode('profile_list')}>
+        <ChevronLeft className="w-4 h-4" />
         <span className="text-[0.6rem] font-bold tracking-widest uppercase">戻る</span>
       </div>
 
@@ -439,7 +411,6 @@ export const NeuralLink: React.FC<NeuralLinkProps> = ({ onUnlock, isInitialSetup
 
         <div className="p-8 relative">
           {mode === 'home' && renderHome()}
-          {mode === 'auth_selection' && renderAuthSelection()}
           {mode === 'mnemonic' && renderMnemonic()}
           {mode === 'biometric' && renderBiometric()}
           {mode === 'profile_list' && renderProfileList()}
