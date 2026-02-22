@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/neural-db/sw.js', { scope: '/neural-db/' })})}
