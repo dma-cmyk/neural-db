@@ -977,7 +977,7 @@ export default function App() {
               <input
                 type="text"
                 className="w-full bg-transparent border-none focus:ring-0 py-2.5 pr-4 text-sm placeholder-cyan-900/60 outline-none text-cyan-100 font-mono"
-                placeholder="PROMPT > 意味・文脈スキャン..."
+                placeholder="検索 > 意味・文脈スキャン..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -1013,7 +1013,7 @@ export default function App() {
               `}
             >
               <Settings className="w-5 h-5" />
-              <span className="text-[0.6rem] font-bold uppercase tracking-[0.2em] hidden xl:block">System</span>
+              <span className="text-[0.6rem] font-bold uppercase tracking-[0.2em] hidden xl:block">システム</span>
             </button>
           </div>
         </div>
@@ -1026,11 +1026,11 @@ export default function App() {
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-cyan-400">
                   <BrainCircuit className="w-4 h-4" />
-                  <span className="text-[0.65rem] font-bold uppercase tracking-widest">AI Engine</span>
+                  <span className="text-[0.65rem] font-bold uppercase tracking-widest">AIエンジン</span>
                 </div>
                 <div className="space-y-3">
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-[0.55rem] text-zinc-500 font-bold uppercase tracking-wider">Model</span>
+                    <span className="text-[0.55rem] text-zinc-500 font-bold uppercase tracking-wider">モデル</span>
                     <div className="flex items-center gap-2 bg-black/50 border border-cyan-900/50 p-2 focus-within:border-cyan-500 transition-all">
                       <select 
                         className="bg-transparent border-none text-[0.65rem] focus:ring-0 p-0 outline-none text-cyan-100 flex-1 appearance-none cursor-pointer font-bold disabled:opacity-50"
@@ -1052,7 +1052,7 @@ export default function App() {
                     </div>
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-[0.55rem] text-zinc-500 font-bold uppercase tracking-wider">API Key</span>
+                    <span className="text-[0.55rem] text-zinc-500 font-bold uppercase tracking-wider">APIキー</span>
                     <div className="flex items-center gap-2 bg-black/50 border border-fuchsia-900/50 p-2 focus-within:border-fuchsia-500 transition-all">
                       <select 
                         className="bg-transparent border-none text-[0.65rem] focus:ring-0 p-0 outline-none text-fuchsia-100 flex-1 appearance-none cursor-pointer font-bold"
@@ -1074,7 +1074,7 @@ export default function App() {
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-cyan-400">
                   <TagIcon className="w-4 h-4" />
-                  <span className="text-[0.65rem] font-bold uppercase tracking-widest">Intelligence</span>
+                  <span className="text-[0.65rem] font-bold uppercase tracking-widest">インテリジェンス</span>
                 </div>
                 <div className="grid grid-cols-1 gap-2">
                   <button
@@ -1087,7 +1087,7 @@ export default function App() {
                       }
                     `}
                   >
-                    <span>Tag Cloud Scan</span>
+                    <span>タグクラウド検索</span>
                     <Maximize2 className="w-3.5 h-3.5" />
                   </button>
                   <button 
@@ -1097,7 +1097,7 @@ export default function App() {
                   >
                     <div className="flex items-center gap-2">
                       <RefreshCw className={`w-3.5 h-3.5 ${isAdding ? 'animate-spin' : ''}`} />
-                      <span>Sync All Nodes</span>
+                      <span>全てのメモを同期</span>
                     </div>
                     <span className="bg-fuchsia-900/20 px-1.5 py-0.5 rounded-full text-[0.5rem]">{notes.filter(n => !n.vector).length}</span>
                   </button>
@@ -1108,18 +1108,18 @@ export default function App() {
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-cyan-400">
                   <Terminal className="w-4 h-4" />
-                  <span className="text-[0.65rem] font-bold uppercase tracking-widest">System Admin</span>
+                  <span className="text-[0.65rem] font-bold uppercase tracking-widest">システム管理</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <button onClick={handleExport} className="p-3 bg-black/50 border border-zinc-800 text-zinc-500 hover:border-cyan-900/50 hover:text-cyan-400 transition-all text-[0.6rem] font-bold uppercase tracking-tighter flex items-center justify-center gap-2">
-                    <Download className="w-3.5 h-3.5" /> Export
+                    <Download className="w-3.5 h-3.5" /> エクスポート
                   </button>
                   <label className="p-3 bg-black/50 border border-zinc-800 text-zinc-500 hover:border-cyan-900/50 hover:text-cyan-400 transition-all text-[0.6rem] font-bold uppercase tracking-tighter flex items-center justify-center gap-2 cursor-pointer">
-                    <Upload className="w-3.5 h-3.5" /> Import
+                    <Upload className="w-3.5 h-3.5" /> インポート
                     <input type="file" accept=".json" className="hidden" ref={fileInputRef} onChange={handleImportNotes} />
                   </label>
                   <button onClick={() => setIsApiKeyModalOpen(true)} className="col-span-2 p-3 bg-black/50 border border-zinc-800 text-zinc-500 hover:border-fuchsia-900/50 hover:text-fuchsia-400 transition-all text-[0.65rem] font-bold uppercase tracking-widest flex items-center justify-center gap-2">
-                    <Key className="w-3.5 h-3.5" /> Master API Key Settings
+                    <Key className="w-3.5 h-3.5" /> マスターAPIキー設定
                   </button>
                 </div>
               </div>
@@ -1128,7 +1128,7 @@ export default function App() {
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-red-500">
                   <ShieldCheck className="w-4 h-4" />
-                  <span className="text-[0.65rem] font-bold uppercase tracking-widest">Security</span>
+                  <span className="text-[0.65rem] font-bold uppercase tracking-widest">セキュリティ</span>
                 </div>
                 <div className="space-y-2">
                   {masterKey && (
@@ -1137,7 +1137,7 @@ export default function App() {
                       className="w-full p-3 bg-red-950/10 border border-red-900/30 text-red-700 hover:bg-red-950/20 hover:border-red-900/50 transition-all text-[0.65rem] font-bold uppercase tracking-widest flex items-center gap-3"
                     >
                       <LogOut className="w-4 h-4" />
-                      Logout Current Vault
+                      ログアウト (Vaultを閉じる)
                     </button>
                   )}
                   {masterKey && (
@@ -1146,7 +1146,7 @@ export default function App() {
                       className="w-full p-3 bg-red-950/5 border border-transparent text-red-950/40 hover:text-red-900 hover:bg-red-950/10 transition-all text-[0.55rem] font-bold uppercase tracking-widest flex items-center gap-3"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      Purge Memory Vault
+                      この装置のデータを全削除
                     </button>
                   )}
                 </div>
@@ -1163,7 +1163,7 @@ export default function App() {
                 onClick={() => setIsControlPanelOpen(false)}
                 className="text-[0.55rem] font-bold text-cyan-900 hover:text-cyan-500 transition-all tracking-[0.5em] py-1"
               >
-                / CLOSE_PANEL /
+                / パネルを閉じる /
               </button>
             </div>
           </div>
