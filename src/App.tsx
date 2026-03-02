@@ -84,6 +84,8 @@ export default function App() {
   const [isAiEditing, setIsAiEditing] = useState(false);
   const [newApiKeyName, setNewApiKeyName] = useState('');
   const [newApiKeyValue, setNewApiKeyValue] = useState('');
+  const [editingApiKeyId, setEditingApiKeyId] = useState<string | null>(null);
+  const [editingApiKeyName, setEditingApiKeyName] = useState('');
   
   // ファイルアップロード状態
   const [pendingFile, setPendingFile] = useState<PendingFile | null>(null);
@@ -289,6 +291,13 @@ export default function App() {
   const handleDeleteApiKey = (id: string) => {
     setApiKeys(prev => prev.filter(ak => ak.id !== id));
     if (selectedApiKeyId === id) setSelectedApiKeyId(null);
+  };
+
+  const handleUpdateApiKeyName = (id: string) => {
+    if (!editingApiKeyName.trim()) return;
+    setApiKeys(prev => prev.map(ak => ak.id === id ? { ...ak, name: editingApiKeyName.trim() } : ak));
+    setEditingApiKeyId(null);
+    setEditingApiKeyName('');
   };
 
   const handleToggleTag = (tag: string) => {
@@ -1191,9 +1200,51 @@ export default function App() {
                 ) : (
                   apiKeys.map(ak => (
                     <div key={ak.id} className="flex items-center justify-between p-2 bg-black/50 border border-zinc-800">
-                      <div className="flex flex-col">
-                        <span className="text-xs text-cyan-300 font-bold">{ak.name}</span>
-                        <span className="text-[0.5rem] text-zinc-600">••••••••{ak.key.slice(-4)}</span>
+                      <div className="flex flex-col flex-1 mr-2">
+                        {editingApiKeyId === ak.id ? (
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="text" 
+                              className="bg-black border border-fuchsia-500 p-1 text-xs text-cyan-400 outline-none w-full"
+                              value={editingApiKeyName}
+                              onChange={(e) => setEditingApiKeyName(e.target.value)}
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleUpdateApiKeyName(ak.id);
+                                if (e.key === 'Escape') setEditingApiKeyId(null);
+                              }}
+                            />
+                            <button 
+                              onClick={() => handleUpdateApiKeyName(ak.id)}
+                              className="p-1 text-emerald-500 hover:text-emerald-300"
+                            >
+                              <Check className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => setEditingApiKeyId(null)}
+                              className="p-1 text-zinc-500 hover:text-zinc-300"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-cyan-300 font-bold">{ak.name}</span>
+                              <button 
+                                onClick={() => {
+                                  setEditingApiKeyId(ak.id);
+                                  setEditingApiKeyName(ak.name);
+                                }}
+                                className="p-1 text-zinc-600 hover:text-cyan-400 transition-colors"
+                                title="名前を変更"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                            <span className="text-[0.5rem] text-zinc-600">••••••••{ak.key.slice(-4)}</span>
+                          </>
+                        )}
                       </div>
                       <div className="flex items-center gap-1">
                         {selectedApiKeyId === ak.id && <Check className="w-4 h-4 text-fuchsia-500 mr-2" />}
