@@ -98,6 +98,7 @@ export default function App() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isTagCloudOpen, setIsTagCloudOpen] = useState(false);
   const [isEditingProfileName, setIsEditingProfileName] = useState(false);
+  const [isControlPanelOpen, setIsControlPanelOpen] = useState(false);
   
   // エディタ拡張状態
   const [editorMode, setEditorMode] = useState<'write' | 'preview' | 'diff'>('write');
@@ -926,214 +927,247 @@ export default function App() {
       )}
       
       {/* ーーー ヘッダー ーーー */}
-      <header className="sticky top-0 z-30 bg-zinc-950/90 backdrop-blur-md border-b border-cyan-500/30 px-4 py-3 shadow-[0_4px_20px_rgba(6,182,212,0.15)]">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center justify-between w-full md:w-auto gap-4">
-            <div className="flex items-center gap-3 min-w-max">
-              <div className="bg-zinc-900 border border-fuchsia-500 p-1.5 shadow-[0_0_10px_rgba(217,70,239,0.3)]">
-                <Terminal className="w-6 h-6 text-fuchsia-400" />
-              </div>
-              <div className="flex flex-col">
-                <h1 className="text-xl font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500 leading-none">
-                  NEURAL_DB
-                </h1>
-                <div className="flex items-center gap-1 mt-1">
-                  {isEditingProfileName ? (
-                    <div className="flex items-center gap-1">
-                      <input 
-                        type="text" 
-                        className="bg-black border border-cyan-500 py-0.5 px-1 text-[0.6rem] text-cyan-400 outline-none w-24 font-bold uppercase"
-                        value={editingProfileName}
-                        onChange={(e) => setEditingProfileName(e.target.value)}
-                        autoFocus
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleRenameProfile();
-                            setIsEditingProfileName(false);
-                          }
-                          if (e.key === 'Escape') setIsEditingProfileName(false);
-                        }}
-                        onBlur={() => setIsEditingProfileName(false)}
-                      />
-                    </div>
-                  ) : (
-                    <div 
-                      className="group flex items-center gap-1 cursor-pointer"
-                      onClick={() => setIsEditingProfileName(true)}
-                    >
-                      <span className="text-[0.6rem] text-cyan-600 tracking-[0.2em] font-bold uppercase truncate max-w-[120px]">
-                        {currentProfile?.name || 'GUEST'}
-                      </span>
-                      <Edit2 className="w-2.5 h-2.5 text-cyan-900 group-hover:text-cyan-400 transition-colors" />
-                    </div>
-                  )}
-                  {!activeApiKey && (
-                    <span className="text-[0.5rem] text-zinc-700 font-bold uppercase ml-1 hidden sm:block">/ LOCAL</span>
-                  )}
-                </div>
-              </div>
+      <header className="sticky top-0 z-30 bg-zinc-950/90 backdrop-blur-md border-b border-cyan-500/30 px-4 py-2 shadow-[0_4px_20px_rgba(6,182,212,0.15)]">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-max">
+            <div className="bg-zinc-900 border border-fuchsia-500 p-1.5 shadow-[0_0_10px_rgba(217,70,239,0.3)]">
+              <Terminal className="w-5 h-5 text-fuchsia-400" />
             </div>
-
-            <div className="flex items-center gap-2 md:hidden">
-              {activeApiKey && notes.some(n => !n.vector) && (
-                <button 
-                  onClick={handleVectorizeAll}
-                  disabled={isAdding}
-                  className="p-2 bg-fuchsia-950/30 border border-fuchsia-500/50 text-fuchsia-400"
-                >
-                  <Zap className={`w-4 h-4 ${isAdding ? 'animate-pulse' : ''}`} />
-                </button>
-              )}
-              <button 
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2 bg-zinc-900 border border-cyan-900 text-cyan-500"
-              >
-                {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
+            <div className="flex flex-col">
+              <h1 className="text-lg font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500 leading-none">
+                NEURAL_DB
+              </h1>
+              <div className="flex items-center gap-1 mt-0.5">
+                {isEditingProfileName ? (
+                  <input 
+                    type="text" 
+                    className="bg-black border border-cyan-500 py-0.5 px-1 text-[0.55rem] text-cyan-400 outline-none w-20 font-bold uppercase"
+                    value={editingProfileName}
+                    onChange={(e) => setEditingProfileName(e.target.value)}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleRenameProfile();
+                        setIsEditingProfileName(false);
+                      }
+                      if (e.key === 'Escape') setIsEditingProfileName(false);
+                    }}
+                    onBlur={() => setIsEditingProfileName(false)}
+                  />
+                ) : (
+                  <div 
+                    className="group flex items-center gap-1 cursor-pointer"
+                    onClick={() => setIsEditingProfileName(true)}
+                  >
+                    <span className="text-[0.55rem] text-cyan-600 tracking-[0.2em] font-bold uppercase truncate max-w-[80px]">
+                      {currentProfile?.name || 'GUEST'}
+                    </span>
+                    <Edit2 className="w-2 h-2 text-cyan-900 group-hover:text-cyan-400 transition-colors" />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="flex-1 w-full max-w-2xl">
-            <div className="relative flex items-center w-full bg-zinc-900 border border-cyan-900/50 focus-within:border-cyan-400 focus-within:shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all">
-              <button onClick={handleSearch} disabled={isSearching} className="p-3 text-cyan-600 hover:text-cyan-300">
-                {isSearching ? <Loader2 className="w-5 h-5 animate-spin text-fuchsia-500" /> : <Search className="w-5 h-5" />}
+          <div className="flex-1 max-w-3xl px-2">
+            <div className="relative flex items-center w-full bg-zinc-900/50 border border-cyan-900/40 focus-within:border-cyan-400/60 focus-within:bg-zinc-900 focus-within:shadow-[0_0_15px_rgba(6,182,212,0.2)] transition-all">
+              <button onClick={handleSearch} disabled={isSearching} className="p-2.5 text-cyan-600 hover:text-cyan-300">
+                {isSearching ? <Loader2 className="w-4 h-4 animate-spin text-fuchsia-500" /> : <Search className="w-4 h-4" />}
               </button>
               <input
                 type="text"
-                className="w-full bg-transparent border-none focus:ring-0 py-3 pr-4 text-sm placeholder-cyan-800 outline-none text-cyan-100"
-                placeholder="検索クエリ > 意味・文脈でスキャン..."
+                className="w-full bg-transparent border-none focus:ring-0 py-2.5 pr-4 text-sm placeholder-cyan-900/60 outline-none text-cyan-100 font-mono"
+                placeholder="PROMPT > 意味・文脈スキャン..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               />
               {searchQuery && (
-                <button onClick={() => { setSearchQuery(''); setSearchVector(null); }} className="p-3 text-fuchsia-500 hover:text-fuchsia-300">
-                  <X className="w-5 h-5" />
+                <button onClick={() => { setSearchQuery(''); setSearchVector(null); }} className="p-2.5 text-fuchsia-500 hover:text-fuchsia-300">
+                  <X className="w-4 h-4" />
                 </button>
               )}
-              <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent"></div>
             </div>
           </div>
 
-          <div className={`
-            ${isMobileMenuOpen ? 'flex' : 'hidden md:flex'} 
-            flex-col md:flex-row items-stretch md:items-center gap-3 pt-4 md:pt-0 border-t md:border-t-0 border-cyan-900/30 md:flex-shrink-0
-          `}>
-            <div className="flex items-center gap-1 border-b md:border-b-0 md:border-r border-cyan-900/50 pb-3 md:pb-0 md:pr-3 md:mr-1 justify-between md:justify-start">
-              <div className="flex items-center gap-1">
-                {masterKey && (
-                  <button
-                    onClick={handleLogout}
-                    className="p-2 text-zinc-600 hover:text-red-400 hover:bg-red-950/20 transition-all rounded-sm flex items-center gap-2 mr-2 border border-transparent hover:border-red-900/50"
-                    title="ユーザー切り替え / ログアウト"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span className="text-[0.6rem] font-bold uppercase tracking-wider hidden sm:inline">ログアウト</span>
-                  </button>
-                )}
-                {masterKey && (
-                  <button
-                    onClick={handleDeleteVault}
-                    className="p-2 text-zinc-800 hover:text-red-600 hover:bg-red-950/20 transition-all rounded-sm flex items-center gap-2 mr-2 border border-transparent hover:border-red-900/50"
-                    title="ユーザーVaultを削除"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span className="text-[0.6rem] font-bold uppercase tracking-wider hidden sm:inline text-zinc-900">消去</span>
-                  </button>
-                )}
-                <button onClick={handleExport} className="p-2 text-cyan-600 hover:text-cyan-300 hover:bg-cyan-950/50 transition-colors">
-                  <Download className="w-5 h-5" />
-                </button>
-                <label className="p-2 text-cyan-600 hover:text-cyan-300 hover:bg-cyan-950/50 transition-colors cursor-pointer">
-                  <Upload className="w-5 h-5" />
-                  <input type="file" accept=".json" className="hidden" ref={fileInputRef} onChange={handleImportNotes} />
-                </label>
-              </div>
+          <div className="flex items-center gap-2">
+            {activeApiKey && notes.some(n => !n.vector) && (
               <button 
-                onClick={() => setIsApiKeyModalOpen(true)}
-                className="md:hidden p-2 bg-zinc-900 border border-fuchsia-900/50 text-fuchsia-500"
+                onClick={handleVectorizeAll}
+                disabled={isAdding}
+                className="p-2.5 bg-fuchsia-950/20 border border-fuchsia-900/30 text-fuchsia-500 hover:border-fuchsia-500 hover:text-fuchsia-400 transition-all rounded-sm hidden sm:block"
+                title="未同期のメモを一括同期"
               >
-                <Settings className="w-4 h-4" />
+                <RefreshCw className={`w-4 h-4 ${isAdding ? 'animate-spin' : ''}`} />
               </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:flex items-center gap-2">
-              <div className="flex items-center gap-2 bg-zinc-900 px-3 py-2 border border-cyan-900/50 focus-within:border-cyan-400 transition-all">
-                <BrainCircuit className={`w-4 h-4 flex-shrink-0 ${isLoadingModels ? 'animate-pulse text-zinc-500' : (availableModels.find(m => m.id === selectedModelId)?.isPaid ? 'text-amber-400' : 'text-cyan-500')}`} />
-                <select 
-                  className="bg-transparent border-none text-[0.65rem] focus:ring-0 p-0 outline-none text-cyan-100 flex-1 appearance-none cursor-pointer font-bold disabled:opacity-50"
-                  value={selectedModelId}
-                  onChange={(e) => setSelectedModelId(e.target.value)}
-                  disabled={isLoadingModels}
-                >
-                  {isLoadingModels ? (
-                    <option className="bg-zinc-900">読み込み中...</option>
-                  ) : (
-                    availableModels.map(model => (
-                      <option key={model.id} value={model.id} className="bg-zinc-900" title={model.description}>
-                        {model.name} {model.isPaid ? '★' : ''}
-                      </option>
-                    ))
-                  )}
-                </select>
-                <ChevronDown className="w-3 h-3 text-cyan-600 ml-1 pointer-events-none" />
-              </div>
-
-              <div className="flex items-center gap-2 bg-zinc-900 px-3 py-2 border border-fuchsia-900/50 focus-within:border-fuchsia-500 transition-all">
-                <Key className="w-4 h-4 flex-shrink-0 text-fuchsia-500" />
-                <select 
-                  className="bg-transparent border-none text-xs focus:ring-0 p-0 outline-none text-fuchsia-100 flex-1 appearance-none cursor-pointer"
-                  value={selectedApiKeyId || ''}
-                  onChange={(e) => setSelectedApiKeyId(e.target.value)}
-                >
-                  <option value="" disabled className="bg-zinc-900">APIキーを選択...</option>
-                  {apiKeys.map(ak => (
-                    <option key={ak.id} value={ak.id} className="bg-zinc-900">{ak.name}</option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3 h-3 text-fuchsia-500 ml-1 pointer-events-none" />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 justify-between md:justify-start">
-              {/* BATCH_SYNC & TAG_CLOUD */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsTagCloudOpen(!isTagCloudOpen)}
-                className={`
-                  p-2 flex items-center justify-center transition-all border
-                  ${isTagCloudOpen 
-                    ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.3)]' 
-                    : 'bg-zinc-900 border-cyan-900 text-cyan-500 hover:border-cyan-700 hover:text-cyan-400'
-                  }
-                `}
-                title="タグクラウドを開く"
-              >
-                <TagIcon className="w-5 h-5" />
-              </button>
-              
-              <div className="hidden sm:flex">
-                <button 
-                  onClick={handleVectorizeAll}
-                  disabled={isAdding || notes.filter(n => !n.vector).length === 0}
-                  className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-cyan-900 text-cyan-500 hover:bg-cyan-900/20 hover:text-cyan-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono text-xs font-bold whitespace-nowrap"
-                >
-                  <RefreshCw className={`w-4 h-4 ${isAdding ? 'animate-spin' : ''}`} />
-                  <span className="hidden lg:inline">一括同期 (SYNC)</span>
-                  <span className="lg:hidden">SYNC</span>
-                </button>
-              </div>
-            </div>
-              
-              <button 
-                onClick={() => setIsApiKeyModalOpen(true)}
-                className="hidden md:block p-2 bg-zinc-900 border border-fuchsia-900/50 text-fuchsia-500 hover:text-fuchsia-300 transition-all focus:outline-none"
-              >
-                <Settings className="w-4 h-4" />
-              </button>
-            </div>
+            )}
+            
+            <button
+              onClick={() => setIsControlPanelOpen(!isControlPanelOpen)}
+              className={`
+                p-2.5 transition-all border rounded-sm flex items-center gap-2
+                ${isControlPanelOpen 
+                  ? 'bg-cyan-500/10 border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.2)]' 
+                  : 'bg-zinc-900 border-cyan-900/50 text-cyan-500 hover:border-cyan-700 hover:text-cyan-400'
+                }
+              `}
+            >
+              <Settings className="w-5 h-5" />
+              <span className="text-[0.6rem] font-bold uppercase tracking-[0.2em] hidden xl:block">System</span>
+            </button>
           </div>
         </div>
+
+        {/* --- コントロールパネル (統合メニュー) --- */}
+        {isControlPanelOpen && (
+          <div className="absolute top-full left-0 right-0 bg-zinc-950/95 backdrop-blur-xl border-b border-cyan-500/30 shadow-[0_10px_40px_rgba(0,0,0,0.5)] animate-in slide-in-from-top-4 duration-200">
+            <div className="max-w-7xl mx-auto p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {/* セクション 1: AI エンジン */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-cyan-400">
+                  <BrainCircuit className="w-4 h-4" />
+                  <span className="text-[0.65rem] font-bold uppercase tracking-widest">AI Engine</span>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[0.55rem] text-zinc-500 font-bold uppercase tracking-wider">Model</span>
+                    <div className="flex items-center gap-2 bg-black/50 border border-cyan-900/50 p-2 focus-within:border-cyan-500 transition-all">
+                      <select 
+                        className="bg-transparent border-none text-[0.65rem] focus:ring-0 p-0 outline-none text-cyan-100 flex-1 appearance-none cursor-pointer font-bold disabled:opacity-50"
+                        value={selectedModelId}
+                        onChange={(e) => setSelectedModelId(e.target.value)}
+                        disabled={isLoadingModels}
+                      >
+                        {isLoadingModels ? (
+                          <option className="bg-zinc-900">読み込み中...</option>
+                        ) : (
+                          availableModels.map(model => (
+                            <option key={model.id} value={model.id} className="bg-zinc-900" title={model.description}>
+                              {model.name} {model.isPaid ? '★' : ''}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      <ChevronDown className="w-3 h-3 text-cyan-600" />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[0.55rem] text-zinc-500 font-bold uppercase tracking-wider">API Key</span>
+                    <div className="flex items-center gap-2 bg-black/50 border border-fuchsia-900/50 p-2 focus-within:border-fuchsia-500 transition-all">
+                      <select 
+                        className="bg-transparent border-none text-[0.65rem] focus:ring-0 p-0 outline-none text-fuchsia-100 flex-1 appearance-none cursor-pointer font-bold"
+                        value={selectedApiKeyId || ''}
+                        onChange={(e) => setSelectedApiKeyId(e.target.value)}
+                      >
+                        <option value="" disabled className="bg-zinc-900 text-zinc-600">未選択</option>
+                        {apiKeys.map(ak => (
+                          <option key={ak.id} value={ak.id} className="bg-zinc-900">{ak.name}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-3 h-3 text-fuchsia-600" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* セクション 2: インテリジェンス */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-cyan-400">
+                  <TagIcon className="w-4 h-4" />
+                  <span className="text-[0.65rem] font-bold uppercase tracking-widest">Intelligence</span>
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    onClick={() => { setIsTagCloudOpen(!isTagCloudOpen); setIsControlPanelOpen(false); }}
+                    className={`
+                      w-full flex items-center justify-between p-3 border transition-all text-[0.65rem] font-bold uppercase tracking-widest
+                      ${isTagCloudOpen 
+                        ? 'bg-cyan-500/10 border-cyan-400 text-cyan-300' 
+                        : 'bg-black/50 border-zinc-800 text-zinc-500 hover:border-cyan-900/50 hover:text-cyan-400'
+                      }
+                    `}
+                  >
+                    <span>Tag Cloud Scan</span>
+                    <Maximize2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button 
+                    onClick={handleVectorizeAll}
+                    disabled={isAdding || notes.filter(n => !n.vector).length === 0}
+                    className="w-full flex items-center justify-between p-3 bg-black/50 border border-zinc-800 text-fuchsia-500 hover:border-fuchsia-900/50 hover:text-fuchsia-400 disabled:opacity-20 disabled:cursor-not-allowed transition-all text-[0.65rem] font-bold uppercase tracking-widest"
+                  >
+                    <div className="flex items-center gap-2">
+                      <RefreshCw className={`w-3.5 h-3.5 ${isAdding ? 'animate-spin' : ''}`} />
+                      <span>Sync All Nodes</span>
+                    </div>
+                    <span className="bg-fuchsia-900/20 px-1.5 py-0.5 rounded-full text-[0.5rem]">{notes.filter(n => !n.vector).length}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* セクション 3: システム管理 */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-cyan-400">
+                  <Terminal className="w-4 h-4" />
+                  <span className="text-[0.65rem] font-bold uppercase tracking-widest">System Admin</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={handleExport} className="p-3 bg-black/50 border border-zinc-800 text-zinc-500 hover:border-cyan-900/50 hover:text-cyan-400 transition-all text-[0.6rem] font-bold uppercase tracking-tighter flex items-center justify-center gap-2">
+                    <Download className="w-3.5 h-3.5" /> Export
+                  </button>
+                  <label className="p-3 bg-black/50 border border-zinc-800 text-zinc-500 hover:border-cyan-900/50 hover:text-cyan-400 transition-all text-[0.6rem] font-bold uppercase tracking-tighter flex items-center justify-center gap-2 cursor-pointer">
+                    <Upload className="w-3.5 h-3.5" /> Import
+                    <input type="file" accept=".json" className="hidden" ref={fileInputRef} onChange={handleImportNotes} />
+                  </label>
+                  <button onClick={() => setIsApiKeyModalOpen(true)} className="col-span-2 p-3 bg-black/50 border border-zinc-800 text-zinc-500 hover:border-fuchsia-900/50 hover:text-fuchsia-400 transition-all text-[0.65rem] font-bold uppercase tracking-widest flex items-center justify-center gap-2">
+                    <Key className="w-3.5 h-3.5" /> Master API Key Settings
+                  </button>
+                </div>
+              </div>
+
+              {/* セクション 4: セキュリティ */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-red-500">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span className="text-[0.65rem] font-bold uppercase tracking-widest">Security</span>
+                </div>
+                <div className="space-y-2">
+                  {masterKey && (
+                    <button
+                      onClick={handleLogout}
+                      className="w-full p-3 bg-red-950/10 border border-red-900/30 text-red-700 hover:bg-red-950/20 hover:border-red-900/50 transition-all text-[0.65rem] font-bold uppercase tracking-widest flex items-center gap-3"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout Current Vault
+                    </button>
+                  )}
+                  {masterKey && (
+                    <button
+                      onClick={handleDeleteVault}
+                      className="w-full p-3 bg-red-950/5 border border-transparent text-red-950/40 hover:text-red-900 hover:bg-red-950/10 transition-all text-[0.55rem] font-bold uppercase tracking-widest flex items-center gap-3"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Purge Memory Vault
+                    </button>
+                  )}
+                </div>
+                <div className="pt-2 border-t border-zinc-900">
+                   <p className="text-[0.5rem] text-zinc-700 font-mono tracking-tighter leading-relaxed">
+                    NEURAL_DB // ENCRYPTED_VAULT:{vaultId?.slice(0, 16)}...
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-zinc-900/50 px-6 py-2 border-t border-cyan-500/10 flex justify-center">
+              <button 
+                onClick={() => setIsControlPanelOpen(false)}
+                className="text-[0.55rem] font-bold text-cyan-900 hover:text-cyan-500 transition-all tracking-[0.5em] py-1"
+              >
+                / CLOSE_PANEL /
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* APIキー管理モーダル */}
