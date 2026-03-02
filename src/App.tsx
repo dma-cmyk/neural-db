@@ -97,6 +97,7 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isTagCloudOpen, setIsTagCloudOpen] = useState(false);
+  const [isEditingProfileName, setIsEditingProfileName] = useState(false);
   
   // エディタ拡張状態
   const [editorMode, setEditorMode] = useState<'write' | 'preview' | 'diff'>('write');
@@ -936,9 +937,40 @@ export default function App() {
                 <h1 className="text-xl font-bold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500 leading-none">
                   NEURAL_DB
                 </h1>
-                {!activeApiKey && (
-                  <span className="text-[0.5rem] text-zinc-500 tracking-[0.3em] font-bold uppercase mt-1 hidden sm:block">オフライン・ローカルモード</span>
-                )}
+                <div className="flex items-center gap-1 mt-1">
+                  {isEditingProfileName ? (
+                    <div className="flex items-center gap-1">
+                      <input 
+                        type="text" 
+                        className="bg-black border border-cyan-500 py-0.5 px-1 text-[0.6rem] text-cyan-400 outline-none w-24 font-bold uppercase"
+                        value={editingProfileName}
+                        onChange={(e) => setEditingProfileName(e.target.value)}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleRenameProfile();
+                            setIsEditingProfileName(false);
+                          }
+                          if (e.key === 'Escape') setIsEditingProfileName(false);
+                        }}
+                        onBlur={() => setIsEditingProfileName(false)}
+                      />
+                    </div>
+                  ) : (
+                    <div 
+                      className="group flex items-center gap-1 cursor-pointer"
+                      onClick={() => setIsEditingProfileName(true)}
+                    >
+                      <span className="text-[0.6rem] text-cyan-600 tracking-[0.2em] font-bold uppercase truncate max-w-[120px]">
+                        {currentProfile?.name || 'GUEST'}
+                      </span>
+                      <Edit2 className="w-2.5 h-2.5 text-cyan-900 group-hover:text-cyan-400 transition-colors" />
+                    </div>
+                  )}
+                  {!activeApiKey && (
+                    <span className="text-[0.5rem] text-zinc-700 font-bold uppercase ml-1 hidden sm:block">/ LOCAL</span>
+                  )}
+                </div>
               </div>
             </div>
 
