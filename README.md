@@ -33,7 +33,8 @@
 - **Cryptography**: Web Crypto API (AES-GCM, PBKDF2), bip39
 - **AI/ML**: Google Gemini API
   - **Embeddings**: `gemini-embedding-001`
-  - **Processing**: `gemini-2.5-flash-lite`, `gemini-2.0-flash-lite` etc.
+  - **Processing**: `gemini-3-flash-preview` (Default), `gemini-3-pro-preview` etc.
+  - **Dynamic Model Selection**: 利用可能なモデルをAPIから動的に取得し、選択可能。
 - **Icons**: Lucide React
 - **PWA**: vite-plugin-pwa
 
