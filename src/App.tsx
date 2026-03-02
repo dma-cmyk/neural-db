@@ -3,7 +3,7 @@ import {
   Search, Plus, Loader2, Trash2, X, BrainCircuit, Info, Key, Download, Upload, 
   Edit2, Terminal, Maximize2, Minimize2, Zap, RefreshCw, Menu, LogOut, Fingerprint,
   File as FileIcon, Paperclip, ChevronDown, Check, Settings, ExternalLink, Unlink, 
-  Tag as TagIcon, ShieldCheck 
+  Tag as TagIcon, ShieldCheck, Save 
 } from 'lucide-react';
 import { calculateCosineSimilarity } from './lib/utils';
 import { getEmbedding, summarizeFile, generateTitle, batchGetEmbeddings, generateTags, editNoteWithAI, getAvailableModels, GeminiModel } from './lib/gemini';
@@ -95,6 +95,7 @@ export default function App() {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isTagCloudOpen, setIsTagCloudOpen] = useState(false);
   const [isEditingProfileName, setIsEditingProfileName] = useState(false);
@@ -319,14 +320,15 @@ export default function App() {
   }, [notes]);
 
   const handleCloseInput = () => {
+    setIsInputExpanded(false);
+    setIsEditModalOpen(false);
+    setIsFocusMode(false);
     setNewNoteTitle('');
     setNewNoteText('');
-    setPendingFile(null);
     setEditingNoteId(null);
-    setIsInputExpanded(false);
-    setIsFocusMode(false);
-    setEditorMode('write');
+    setPendingFile(null);
     setOriginalTextForDiff('');
+    setEditorMode('write');
   };
 
   const handleToggleFocus = () => {
@@ -602,11 +604,10 @@ export default function App() {
   };
 
   const handleEditNote = (note: Note) => {
-    setNewNoteTitle(note.title || '');
-    setNewNoteText(note.text);
     setEditingNoteId(note.id);
-    setIsInputExpanded(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setNewNoteTitle(note.title);
+    setNewNoteText(note.text);
+    setIsEditModalOpen(true);
   };
 
   const handleDeleteNote = (id: string) => {
@@ -1350,92 +1351,128 @@ export default function App() {
 
         {/* ーーー メモ入力エリア ーーー */}
         <div 
-          ref={inputRef}
-          className={`max-w-2xl mx-auto mb-10 bg-zinc-900 border border-cyan-900 overflow-hidden transition-all duration-300 ${isInputExpanded ? 'shadow-[0_0_20px_rgba(6,182,212,0.15)] border-cyan-500' : 'hover:border-cyan-700 cursor-text'}`}
-          onClick={() => !isInputExpanded && setIsInputExpanded(true)}
+          className="max-w-2xl mx-auto mb-10 group"
         >
-          {isInputExpanded ? (
-            <div className="flex flex-col animate-in fade-in duration-200">
-              <div className="bg-zinc-950 border-b border-cyan-900/50 px-4 py-1.5 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
+          <button 
+            onClick={() => {
+              handleCloseInput();
+              setIsEditModalOpen(true);
+            }}
+            className="w-full p-4 flex items-center justify-between bg-zinc-900 border border-cyan-900 text-cyan-700 font-bold tracking-widest hover:border-cyan-500 hover:text-cyan-400 hover:shadow-[0_0_20px_rgba(6,182,212,0.15)] transition-all duration-300"
+          >
+            <div className="flex items-center gap-3">
+              <Plus className="w-5 h-5 text-fuchsia-500 group-hover:rotate-90 transition-transform duration-300" />
+              <span>新規ニューラルレコードを作成...</span>
+            </div>
+            <Terminal className="w-4 h-4 text-cyan-800" />
+          </button>
+        </div>
+
+        {/* ーーー 編集専用モーダル ーーー */}
+        {isEditModalOpen && !isFocusMode && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+            <div className="bg-zinc-900 border border-cyan-500 shadow-[0_0_50px_rgba(6,182,212,0.2)] w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="bg-zinc-950 border-b border-cyan-500/30 px-4 py-2 flex items-center justify-between">
+                <div className="flex items-center gap-3">
                   <div className="w-2 h-2 bg-fuchsia-500 animate-pulse"></div>
-                  <span className="text-[0.65rem] text-cyan-600 tracking-widest">入力ターミナル稼働中</span>
+                  <h3 className="text-cyan-400 text-xs font-bold tracking-[0.2em] uppercase">
+                    {editingNoteId ? 'レコード編集プロトコル' : '新規レコード作成プロトコル'}
+                  </h3>
                 </div>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); handleToggleFocus(); }}
-                  className="p-1 text-cyan-700 hover:text-cyan-400 transition-colors"
-                  title="全画面表示"
-                >
-                  <Maximize2 className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={handleToggleFocus}
+                    className="p-1.5 text-cyan-600 hover:text-cyan-300 transition-all border border-cyan-900/50 hover:border-cyan-500"
+                    title="全画面表示（集中モード）"
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                  </button>
+                  <button onClick={handleCloseInput} className="text-cyan-600 hover:text-red-400 transition-colors">
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
               </div>
-              <input
-                type="text"
-                className="w-full px-4 pt-4 pb-2 text-lg font-bold tracking-wide bg-transparent border-none outline-none text-cyan-100 placeholder-cyan-800"
-                placeholder="タイトル..."
-                value={newNoteTitle}
-                onChange={(e) => setNewNoteTitle(e.target.value)}
-                onPaste={handlePaste}
-              />
-              <textarea
-                autoFocus={!editingNoteId}
-                className="w-full px-4 pb-4 bg-transparent resize-none outline-none min-h-[120px] max-h-[500px] overflow-y-auto text-cyan-50 placeholder-cyan-800/70 custom-scrollbar"
-                placeholder="データ内容を入力..."
-                value={newNoteText}
-                onChange={(e) => setNewNoteText(e.target.value)}
-                onPaste={handlePaste}
-              />
               
-              <div className="flex items-center justify-between p-3 bg-zinc-950 border-t border-cyan-900">
-                <div className="flex items-center gap-2 text-xs text-fuchsia-400 opacity-80">
-                  <BrainCircuit className="w-4 h-4" />
-                  <span className="tracking-widest">
-                    {!activeApiKey ? 'ローカルモード継続中 (保存のみ可能)' :
-                     isProcessingFile ? 'Geminiが解析中...' : 
-                     isGeneratingTitle ? 'AIタイトル生成中...' :
-                     editingNoteId ? '更新時にベクトル化を実行...' : 
-                     pendingFile ? '要約後にベクトル化を実行...' : '保存時にベクトル化を実行...'}
-                  </span>
+              <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                <div className="space-y-1">
+                  <label className="text-[0.6rem] text-cyan-700 font-bold tracking-widest uppercase ml-1">Title</label>
+                  <input
+                    type="text"
+                    className="w-full bg-black/50 border border-cyan-900/50 focus:border-cyan-400 p-3 text-xl font-bold tracking-wide text-cyan-50 outline-none transition-all placeholder-cyan-900/50"
+                    placeholder="タイトルを入力..."
+                    value={newNoteTitle}
+                    onChange={(e) => setNewNoteTitle(e.target.value)}
+                  />
                 </div>
-                <div className="flex gap-3">
-                  <label className="p-2 text-cyan-600 hover:text-cyan-300 hover:bg-cyan-950/50 transition-colors cursor-pointer border border-cyan-900/50">
-                    <Paperclip className="w-4 h-4" />
-                    <input type="file" className="hidden" ref={resourceInputRef} onChange={handleFileUpload} />
-                  </label>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handleCloseInput(); }} 
-                    className="px-4 py-1.5 text-xs font-bold tracking-wider text-cyan-600 hover:text-cyan-300 hover:bg-cyan-900/30 border border-transparent hover:border-cyan-800 transition-all"
-                  >
-                    中止
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handleSaveNote(); }}
-                    disabled={isAdding || (!newNoteText.trim() && !pendingFile)}
-                    className="px-6 py-1.5 text-xs font-bold tracking-widest bg-cyan-950/50 text-cyan-300 border border-cyan-500 hover:bg-cyan-900 hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] disabled:opacity-50 disabled:border-cyan-900 disabled:shadow-none flex items-center gap-2 transition-all"
-                  >
-                    {isAdding ? <Loader2 className="w-4 h-4 animate-spin text-fuchsia-500" /> : editingNoteId ? '上書き保存' : '保存'}
-                  </button>
+
+                <div className="space-y-1">
+                  <label className="text-[0.6rem] text-cyan-700 font-bold tracking-widest uppercase ml-1">Neural Data</label>
+                  <textarea
+                    autoFocus
+                    className="w-full bg-black/50 border border-cyan-900/50 focus:border-cyan-400 p-4 min-h-[300px] text-cyan-100 leading-relaxed outline-none transition-all placeholder-cyan-900/30 resize-none font-mono text-sm custom-scrollbar"
+                    placeholder="思考データを入力してください..."
+                    value={newNoteText}
+                    onChange={(e) => setNewNoteText(e.target.value)}
+                  />
                 </div>
+
+                {pendingFile && (
+                  <div className="p-3 bg-fuchsia-950/20 border border-fuchsia-900/30 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <FileIcon className="w-5 h-5 text-fuchsia-500" />
+                      <div className="flex flex-col">
+                        <span className="text-[0.65rem] text-fuchsia-400 font-bold">{pendingFile.name}</span>
+                        <span className="text-[0.5rem] text-fuchsia-800 uppercase">{pendingFile.type}</span>
+                      </div>
+                    </div>
+                    <button onClick={() => setPendingFile(null)} className="text-fuchsia-900 hover:text-red-500">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
-              {pendingFile && (
-                <div className="px-4 pb-4 animate-in slide-in-from-top-2 duration-300">
-                  <div className="flex items-center gap-2 p-2 bg-fuchsia-950/20 border border-fuchsia-900/50 text-[0.65rem] text-fuchsia-400">
-                    <FileIcon className="w-3.5 h-3.5" />
-                    <span>アップロード待機: {pendingFile.name} ({pendingFile.type})</span>
-                    <button onClick={() => setPendingFile(null)} className="ml-auto hover:text-pink-400">
-                      <X className="w-3.5 h-3.5" />
+
+              <div className="bg-zinc-950 border-t border-cyan-900/50 p-4">
+                <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                  <div className="relative flex-1 w-full group">
+                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                      <BrainCircuit className={`w-4 h-4 ${isAiEditing ? 'text-fuchsia-500 animate-pulse' : 'text-cyan-700'}`} />
+                    </div>
+                    <input 
+                      type="text"
+                      placeholder={isAiEditing ? "AI 🧠 接続中..." : "AIへの指示..."}
+                      className="w-full bg-black border border-cyan-900/50 focus:border-fuchsia-500 p-2 pl-10 text-xs text-cyan-100 outline-none transition-all"
+                      value={aiInstruction}
+                      onChange={(e) => setAiInstruction(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAiEdit(aiInstruction)}
+                      disabled={isAiEditing}
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3 w-full md:w-auto">
+                    <label className="p-2 text-cyan-600 hover:text-cyan-300 hover:bg-cyan-950/50 transition-colors cursor-pointer border border-cyan-900/50 flex items-center justify-center min-w-[40px]">
+                      <Paperclip className="w-5 h-5" />
+                      <input type="file" className="hidden" onChange={handleFileUpload} />
+                    </label>
+                    <button 
+                      onClick={handleCloseInput}
+                      className="flex-1 md:flex-none px-6 py-2 text-xs font-bold tracking-widest text-zinc-500 hover:text-zinc-300 border border-transparent hover:border-zinc-800 transition-all uppercase"
+                    >
+                      中止
+                    </button>
+                    <button 
+                      onClick={handleSaveNote}
+                      disabled={isAdding || (!newNoteText.trim() && !pendingFile)}
+                      className="flex-1 md:flex-none px-8 py-2 bg-cyan-950/50 text-cyan-300 border border-cyan-500 hover:bg-cyan-900 hover:shadow-[0_0_20px_rgba(6,182,212,0.3)] disabled:opacity-30 transition-all text-xs font-bold tracking-[0.2em] uppercase flex items-center justify-center gap-3"
+                    >
+                      {isAdding ? <Loader2 className="w-4 h-4 animate-spin text-fuchsia-500" /> : '保存'}
                     </button>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
-          ) : (
-            <div className="p-4 flex items-center justify-between text-cyan-700 font-bold tracking-widest">
-              <span>入力待機中...</span>
-              <Plus className="w-5 h-5 text-fuchsia-500" />
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* ーーー メモ一覧 ーーー */}
         {searchVector && (
@@ -1636,40 +1673,54 @@ export default function App() {
       {/* ーーー 集中モード (Focus Mode) モーダル ーーー */}
       {isFocusMode && (
         <div className="fixed inset-0 z-[60] bg-zinc-950 flex flex-col animate-in fade-in zoom-in-95 duration-200">
-          <header className="px-6 py-4 border-b border-cyan-500/30 flex items-center justify-between bg-zinc-900/50 backdrop-blur-md">
+          <header className="px-8 py-3 border-b border-cyan-500/20 flex items-center justify-between bg-zinc-950/80 backdrop-blur-xl sticky top-0 z-[70]">
             <div className="flex items-center gap-4">
-              <BrainCircuit className="w-6 h-6 text-fuchsia-500" />
+              <div className="relative">
+                <BrainCircuit className="w-6 h-6 text-fuchsia-500" />
+                <div className="absolute inset-0 bg-fuchsia-500 blur-md opacity-20"></div>
+              </div>
               <div className="flex flex-col">
-                <span className="text-[0.6rem] text-cyan-600 tracking-[0.3em] font-bold uppercase">集中モード起動中</span>
-                <span className="text-xs text-fuchsia-400 font-mono italic">
-                  {isProcessingFile ? 'System: ファイル解析中...' : 
-                   isGeneratingTitle ? 'System: タイトル生成中...' : 'System: 入力待機中...'}
+                <span className="text-[0.6rem] text-cyan-500 tracking-[0.4em] font-bold uppercase">NeuraLink Established</span>
+                <span className="text-[0.65rem] text-fuchsia-500/80 font-mono italic animate-pulse">
+                  {isProcessingFile ? '>> ANALYZING_DATA...' : 
+                   isGeneratingTitle ? '>> GENERATING_META...' : '>> STATUS: READY'}
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="hidden md:flex items-center gap-3 mr-6 px-4 py-1.5 border-x border-cyan-900/30">
+                <div className="flex flex-col items-end">
+                  <span className="text-[0.55rem] text-cyan-800 uppercase tracking-widest font-bold">Line_Count</span>
+                  <span className="text-xs text-cyan-400 font-mono">{newNoteText.split('\n').length}</span>
+                </div>
+                <div className="w-px h-6 bg-cyan-900/30"></div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[0.55rem] text-cyan-800 uppercase tracking-widest font-bold">Char_Count</span>
+                  <span className="text-xs text-cyan-400 font-mono">{newNoteText.length}</span>
+                </div>
+              </div>
               <button 
                 onClick={handleToggleFocus}
-                className="p-2 text-cyan-600 hover:text-cyan-400 transition-all border border-cyan-900/50 hover:border-cyan-500"
+                className="p-2.5 text-cyan-600 hover:text-cyan-300 transition-all border border-cyan-900/40 hover:border-cyan-500/50 hover:bg-cyan-500/5 group"
                 title="縮小"
               >
-                <Minimize2 className="w-5 h-5" />
+                <Minimize2 className="w-5 h-5 group-hover:scale-90 transition-transform" />
               </button>
               <button 
-                onClick={handleCloseInput}
-                className="p-2 text-red-600 hover:text-red-400 transition-all border border-red-900/50 hover:border-red-500"
+                onClick={handleToggleFocus}
+                className="p-2.5 text-red-600/70 hover:text-red-400 transition-all border border-red-900/40 hover:border-red-500/50 hover:bg-red-500/5 group"
                 title="閉じる"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 group-hover:rotate-90 transition-transform" />
               </button>
             </div>
           </header>
 
-          <div className="flex-1 flex flex-col max-w-5xl mx-auto w-full p-6 md:p-12 overflow-hidden">
+          <div className="flex-1 flex flex-col w-full px-6 md:px-20 lg:px-32 py-10 overflow-hidden">
             <input
               type="text"
-              className="w-full bg-transparent border-none outline-none text-3xl md:text-5xl font-bold tracking-tight text-cyan-50 placeholder-cyan-900 mb-8"
-              placeholder="タイトルを入力..."
+              className="w-full bg-transparent border-none outline-none text-4xl md:text-7xl font-bold tracking-tighter text-cyan-50 placeholder-cyan-950 mb-12 py-4 border-b border-transparent focus:border-cyan-900/20 transition-all"
+              placeholder="思考のタイトル..."
               value={newNoteTitle}
               onChange={(e) => setNewNoteTitle(e.target.value)}
               onPaste={handlePaste}
@@ -1698,21 +1749,21 @@ export default function App() {
               )}
             </div>
 
-            <div className="flex-1 flex flex-col gap-0 overflow-hidden border-l border-cyan-510/10">
+            <div className="flex-1 flex flex-col gap-0 overflow-hidden">
               {editorMode === 'write' && (
                 <div className="flex-1 flex gap-0 overflow-hidden">
                   <div 
-                    className="w-12 flex-shrink-0 flex flex-col items-end pr-3 pt-1 text-cyan-800 font-mono text-lg leading-relaxed select-none overflow-hidden bg-zinc-950/30"
+                    className="w-16 flex-shrink-0 flex flex-col items-end pr-5 pt-2 text-cyan-900/60 font-mono text-xl leading-loose select-none overflow-hidden bg-white/[0.02]"
                     id="focus-line-numbers"
                   >
                     {newNoteText.split('\n').map((_, i) => (
-                      <div key={i}>{String(i + 1).padStart(2, '0')}</div>
+                      <div key={i} className="hover:text-cyan-400 transition-colors">{String(i + 1).padStart(2, '0')}</div>
                     ))}
                   </div>
                   <textarea
                     autoFocus
-                    className="flex-1 h-full bg-transparent resize-none outline-none text-lg leading-relaxed text-cyan-100 placeholder-zinc-800 font-mono custom-scrollbar pl-4 border-l border-cyan-900/30"
-                    placeholder="ここに壮大な思考を記録してください..."
+                    className="flex-1 h-full bg-transparent resize-none outline-none text-xl md:text-2xl leading-loose text-cyan-50/90 placeholder-zinc-900 font-mono custom-scrollbar pl-8 border-l border-cyan-900/20"
+                    placeholder="ここに深淵なるデータを記録してください..."
                     value={newNoteText}
                     onChange={(e) => setNewNoteText(e.target.value)}
                     onPaste={handlePaste}
@@ -1720,6 +1771,7 @@ export default function App() {
                       const el = document.getElementById('focus-line-numbers');
                       if (el) el.scrollTop = (e.target as HTMLTextAreaElement).scrollTop;
                     }}
+                    style={{ letterSpacing: '0.025em' }}
                   />
                 </div>
               )}
@@ -1772,24 +1824,26 @@ export default function App() {
             )}
           </div>
 
-          <footer className="p-6 border-t border-cyan-900/50 bg-zinc-900/30 flex items-center justify-between">
-            <div className="flex items-center gap-6 text-[0.65rem] text-cyan-800 tracking-widest font-bold">
-               <div className="flex items-center gap-2">
-                 <div className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse"></div>
-                 NEURALLINK_ESTABLISHED
+          <footer className="px-8 py-5 border-t border-cyan-950 bg-black/40 backdrop-blur-xl flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-8 text-[0.65rem] text-cyan-900 tracking-[0.3em] font-bold">
+               <div className="flex items-center gap-3 group">
+                 <div className="w-2 h-2 bg-cyan-600 rounded-full group-hover:bg-cyan-400 group-hover:shadow-[0_0_10px_rgba(6,182,212,0.8)] transition-all"></div>
+                 NEURAL_FLUX_SYNCED
                </div>
-               <div className="hidden sm:block">CHARS: {newNoteText.length}</div>
+               <div className="hidden lg:block border-l border-cyan-900/30 pl-8">
+                 UPLINK_STABLE // NO_ERRORS
+               </div>
             </div>
             
-            <div className="flex-1 flex items-center justify-center gap-4 px-6">
-              <div className="relative flex-1 max-w-xl group">
-                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                  <BrainCircuit className={`w-4 h-4 ${isAiEditing ? 'text-fuchsia-500 animate-pulse' : 'text-cyan-700'}`} />
+            <div className="flex-1 w-full max-w-3xl px-4">
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                  <BrainCircuit className={`w-5 h-5 ${isAiEditing ? 'text-fuchsia-500 animate-pulse' : 'text-cyan-800 group-focus-within:text-fuchsia-600 transition-colors'}`} />
                 </div>
                 <input 
                   type="text"
-                  placeholder={isAiEditing ? "AI 🧠 プロトコル実行中..." : "AIへの指示 (例: 要約して、箇条書きに、英語にして...)"}
-                  className="w-full bg-black/50 border border-cyan-900 focus:border-fuchsia-500 p-2 pl-10 text-xs text-cyan-100 outline-none transition-all"
+                  placeholder={isAiEditing ? "AI CORE EXECUTION..." : "AIプロトコルへの命令 (例: 要約、構造化、翻訳...)"}
+                  className="w-full bg-black/60 border border-cyan-900/50 focus:border-fuchsia-600/60 p-3.5 pl-12 text-sm text-cyan-100 placeholder-cyan-950 outline-none transition-all rounded-sm"
                   value={aiInstruction}
                   onChange={(e) => setAiInstruction(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAiEdit(aiInstruction)}
@@ -1798,26 +1852,31 @@ export default function App() {
                 <button 
                   onClick={() => handleAiEdit(aiInstruction)}
                   disabled={isAiEditing || !aiInstruction.trim()}
-                  className="absolute right-1 top-1 bottom-1 px-3 bg-fuchsia-900/30 text-fuchsia-500 hover:bg-fuchsia-500 hover:text-white transition-all text-[0.6rem] font-bold uppercase disabled:opacity-30"
+                  className="absolute right-1.5 top-1.5 bottom-1.5 px-6 bg-fuchsia-600/10 text-fuchsia-500 hover:bg-fuchsia-600 hover:text-white transition-all text-xs font-bold uppercase tracking-widest disabled:opacity-20 rounded-sm"
                 >
-                  実行
+                  Apply
                 </button>
               </div>
             </div>
 
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 px-6 py-3 bg-zinc-950 text-cyan-600 hover:text-cyan-300 transition-all border border-cyan-900 cursor-pointer text-xs font-bold tracking-widest uppercase">
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-3 px-6 py-3.5 bg-zinc-950 text-cyan-700 hover:text-cyan-300 hover:bg-cyan-900/10 transition-all border border-cyan-900/60 cursor-pointer text-xs font-bold tracking-[0.2em] uppercase">
                 <Paperclip className="w-4 h-4" />
-                <span>添付</span>
+                <span>Media</span>
                 <input type="file" className="hidden" onChange={handleFileUpload} />
               </label>
               
               <button 
                 onClick={handleSaveNote}
                 disabled={isAdding || (!newNoteText.trim() && !pendingFile)}
-                className="px-10 py-3 bg-cyan-950/50 text-cyan-300 border border-cyan-400 hover:bg-cyan-900 hover:shadow-[0_0_25px_rgba(6,182,212,0.3)] disabled:opacity-30 transition-all text-xs font-bold tracking-[0.2em] uppercase flex items-center gap-3"
+                className="px-12 py-3.5 bg-cyan-600/10 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-600 hover:text-black hover:shadow-[0_0_30px_rgba(6,182,212,0.4)] disabled:opacity-20 transition-all text-xs font-bold tracking-[0.3em] uppercase flex items-center gap-3 rounded-sm group"
               >
-                {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : '保存実行'}
+                {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : 
+                  <>
+                    <Save className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                    <span>Sync_Store</span>
+                  </>
+                }
               </button>
             </div>
           </footer>
