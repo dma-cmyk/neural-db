@@ -1,7 +1,14 @@
 /**
- * Gemini APIを使用してテキストのエンベディングを取得します。
- * エンベディングモデルは gemini-embedding-001 に固定します。
+ * Gemini APIを使用するためのインターフェースとユーティリティ。
  */
+
+export interface GeminiModel {
+  id: string;
+  name: string;
+  description: string;
+  isPaid?: boolean;
+}
+
 const DELAYS = [1000, 2000, 4000, 8000, 16000];
 
 /**
@@ -214,5 +221,34 @@ ${instruction}` }]
       throw new Error('編集に失敗しました');
     }
     return data.candidates[0].content.parts[0].text.trim();
+  });
+};
+
+/**
+ * 使用可能なGeminiモデルの一覧を取得します。
+ */
+export const getAvailableModels = async (apiKey: string): Promise<GeminiModel[]> => {
+  return withRetry(async () => {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    
+    if (!response.ok) {
+      throw new Error(`API接続エラー: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (!data.models) {
+      throw new Error('モデルリストの取得に失敗しました');
+    }
+
+    // generateContent メソッドをサポートしているモデルのみを抽出
+    return data.models
+      .filter((m: any) => m.supportedGenerationMethods.includes('generateContent'))
+      .map((m: any) => ({
+        id: m.name.replace('models/', ''),
+        name: m.displayName,
+        description: m.description,
+        isPaid: m.name.includes('pro') // 'pro' を含むモデルを簡易的に有料フラグ（★表示用）
+      }))
+      .sort((a: any, b: any) => a.name.localeCompare(b.name));
   });
 };

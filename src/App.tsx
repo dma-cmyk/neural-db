@@ -6,7 +6,7 @@ import {
   Tag as TagIcon, ShieldCheck 
 } from 'lucide-react';
 import { calculateCosineSimilarity } from './lib/utils';
-import { getEmbedding, summarizeFile, generateTitle, batchGetEmbeddings, generateTags, editNoteWithAI } from './lib/gemini';
+import { getEmbedding, summarizeFile, generateTitle, batchGetEmbeddings, generateTags, editNoteWithAI, getAvailableModels, GeminiModel } from './lib/gemini';
 import { NoteContent } from './components/NoteContent';
 import { FilePreview } from './components/FilePreview';
 import { TagCloud } from './components/TagCloud';
@@ -52,19 +52,9 @@ interface UserProfile {
   lastActive: string;
 }
 
-interface GeminiModel {
-  id: string;
-  name: string;
-  description: string;
-  isPaid?: boolean;
-}
-
-const AVAILABLE_MODELS: GeminiModel[] = [
-  { id: 'gemini-2.0-flash-lite', name: '2.0 Flash Lite', description: '高速・安定' },
-  { id: 'gemini-2.5-flash-lite', name: '2.5 Flash Lite', description: '高速・軽量 (デフォルト)' },
-  { id: 'gemini-3-flash-preview', name: '3 Flash Preview', description: '次世代高速モデル' },
-  { id: 'gemini-2.5-pro', name: '2.5 Pro', description: '高性能・多目的' },
-  { id: 'gemini-3-pro-preview', name: '3 Pro Preview', description: '次世代最上位モデル', isPaid: true },
+const INITIAL_MODELS: GeminiModel[] = [
+  { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash Preview', description: '次世代高速モデル' },
+  { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro Preview', description: '次世代最上位モデル', isPaid: true },
 ];
 
 // --- メインコンポーネント ---
@@ -78,7 +68,9 @@ export default function App() {
   
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [selectedApiKeyId, setSelectedApiKeyId] = useState<string | null>(null);
-  const [selectedModelId, setSelectedModelId] = useState<string>('gemini-2.5-flash-lite');
+  const [availableModels, setAvailableModels] = useState<GeminiModel[]>(INITIAL_MODELS);
+  const [selectedModelId, setSelectedModelId] = useState<string>('gemini-3-flash-preview');
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
   
   const [isAdding, setIsAdding] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -251,6 +243,35 @@ export default function App() {
     const selected = apiKeys.find(ak => ak.id === selectedApiKeyId);
     return selected ? selected.key : defaultApiKey;
   }, [apiKeys, selectedApiKeyId]);
+
+  // APIキー変更時にモデルリストを更新
+  useEffect(() => {
+    const fetchModels = async () => {
+      if (!activeApiKey) {
+        setAvailableModels(INITIAL_MODELS);
+        return;
+      }
+
+      setIsLoadingModels(true);
+      try {
+        const models = await getAvailableModels(activeApiKey);
+        if (models.length > 0) {
+          setAvailableModels(models);
+          // 現在選択されているモデルが新しいリストにない場合は、最初のモデルを選択
+          if (!models.find(m => m.id === selectedModelId)) {
+            setSelectedModelId(models[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch models:', err);
+        // エラー時は初期リストを維持
+      } finally {
+        setIsLoadingModels(false);
+      }
+    };
+
+    fetchModels();
+  }, [activeApiKey]);
 
   const handleAddApiKey = () => {
     if (!newApiKeyName.trim() || !newApiKeyValue.trim()) return;
@@ -997,17 +1018,22 @@ export default function App() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:flex items-center gap-2">
               <div className="flex items-center gap-2 bg-zinc-900 px-3 py-2 border border-cyan-900/50 focus-within:border-cyan-400 transition-all">
-                <BrainCircuit className={`w-4 h-4 flex-shrink-0 ${AVAILABLE_MODELS.find(m => m.id === selectedModelId)?.isPaid ? 'text-amber-400' : 'text-cyan-500'}`} />
+                <BrainCircuit className={`w-4 h-4 flex-shrink-0 ${isLoadingModels ? 'animate-pulse text-zinc-500' : (availableModels.find(m => m.id === selectedModelId)?.isPaid ? 'text-amber-400' : 'text-cyan-500')}`} />
                 <select 
-                  className="bg-transparent border-none text-[0.65rem] focus:ring-0 p-0 outline-none text-cyan-100 flex-1 appearance-none cursor-pointer font-bold"
+                  className="bg-transparent border-none text-[0.65rem] focus:ring-0 p-0 outline-none text-cyan-100 flex-1 appearance-none cursor-pointer font-bold disabled:opacity-50"
                   value={selectedModelId}
                   onChange={(e) => setSelectedModelId(e.target.value)}
+                  disabled={isLoadingModels}
                 >
-                  {AVAILABLE_MODELS.map(model => (
-                    <option key={model.id} value={model.id} className="bg-zinc-900">
-                      {model.name} {model.isPaid ? '★' : ''}
-                    </option>
-                  ))}
+                  {isLoadingModels ? (
+                    <option className="bg-zinc-900">読み込み中...</option>
+                  ) : (
+                    availableModels.map(model => (
+                      <option key={model.id} value={model.id} className="bg-zinc-900" title={model.description}>
+                        {model.name} {model.isPaid ? '★' : ''}
+                      </option>
+                    ))
+                  )}
                 </select>
                 <ChevronDown className="w-3 h-3 text-cyan-600 ml-1 pointer-events-none" />
               </div>
