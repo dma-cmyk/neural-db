@@ -218,7 +218,14 @@ export default function App() {
             if (savedInstructions) {
               setSavedAiInstructions(JSON.parse(savedInstructions));
             } else {
-              setSavedAiInstructions([]);
+              // 初期テンプレートの提供
+              const templates: SavedAiInstruction[] = [
+                { id: 't1', name: '小説：続きを書く', instruction: 'これまでの展開と文体を踏まえて、自然な続きを数段落書いてください。' },
+                { id: 't2', name: 'コード：最適化', instruction: 'このコードのロジックをより効率的に修正し、日本語で簡潔な解説コメントを追加してください。' },
+                { id: 't3', name: 'プロンプト：強化', instruction: 'このプロンプトをより詳細で、AIが最高のパフォーマンスを発揮できるような構造的なプロンプトに書き換えてください。' },
+                { id: 't4', name: '構成：要約と整理', instruction: '内容を構造化し、重要なポイントを箇条書きで整理してください。' }
+              ];
+              setSavedAiInstructions(templates);
             }
           })
           .catch(err => {
@@ -740,7 +747,8 @@ export default function App() {
 
     setIsAiEditing(true);
     try {
-      const result = await editNoteWithAI(newNoteText, instruction, apiKeyToUse);
+      const currentTitle = editingNoteId ? notes.find(n => n.id === editingNoteId)?.title : newNoteTitle;
+      const result = await editNoteWithAI(newNoteText, instruction, apiKeyToUse, selectedModelId, currentTitle);
       if (isFocusMode) {
         // 全画面モード時は差分表示へ
         setOriginalTextForDiff(newNoteText);
@@ -1451,7 +1459,12 @@ export default function App() {
                   />
                 </div>
 
-                <div className="space-y-1">
+                <div className={`space-y-1 relative ${isAiEditing ? 'ai-glow-container border-2 rounded-sm' : ''} transition-all duration-500`}>
+                  {isAiEditing && (
+                    <div className="ai-processing-overlay">
+                      <div className="ai-scanline"></div>
+                    </div>
+                  )}
                   <label className="text-[0.6rem] text-cyan-700 font-bold tracking-widest uppercase ml-1">Neural Data</label>
                   <textarea
                     autoFocus
@@ -1459,6 +1472,7 @@ export default function App() {
                     placeholder="思考データを入力してください..."
                     value={newNoteText}
                     onChange={(e) => setNewNoteText(e.target.value)}
+                    disabled={isAiEditing}
                   />
                 </div>
 
@@ -1846,9 +1860,15 @@ export default function App() {
 
             <div className="flex-1 flex flex-col gap-0 overflow-hidden">
               {editorMode === 'write' && (
-                <div className="flex-1 flex gap-0 overflow-hidden">
+                <div className={`flex-1 flex gap-0 overflow-hidden relative ${isAiEditing ? 'ai-glow-container border-2 rounded-sm' : ''} transition-all duration-700`}>
+                  {isAiEditing && (
+                    <div className="ai-processing-overlay">
+                      <div className="ai-scanline" style={{ animationDuration: '1.5s' }}></div>
+                      <div className="ai-scanline" style={{ animationDuration: '2.3s', opacity: 0.3 }}></div>
+                    </div>
+                  )}
                   <div 
-                    className="w-12 flex-shrink-0 flex flex-col items-end pr-4 pt-1.5 text-cyan-900/50 font-mono text-base leading-relaxed select-none overflow-hidden bg-white/[0.01]"
+                    className={`w-12 flex-shrink-0 flex flex-col items-end pr-4 pt-1.5 text-cyan-900/50 font-mono text-base leading-relaxed select-none overflow-hidden bg-white/[0.01] ${isAiEditing ? 'opacity-20' : ''}`}
                     id="focus-line-numbers"
                   >
                     {newNoteText.split('\n').map((_, i) => (
@@ -1857,7 +1877,7 @@ export default function App() {
                   </div>
                   <textarea
                     autoFocus
-                    className="flex-1 h-full bg-transparent resize-none outline-none text-base md:text-lg leading-relaxed text-cyan-50/80 placeholder-zinc-900 font-mono custom-scrollbar pl-6 border-l border-cyan-900/20"
+                    className={`flex-1 h-full bg-transparent resize-none outline-none text-base md:text-lg leading-relaxed text-cyan-50/80 placeholder-zinc-900 font-mono custom-scrollbar pl-6 border-l border-cyan-900/20 ${isAiEditing ? 'opacity-40 ai-glitch-text cursor-wait' : ''} transition-all`}
                     placeholder="ここに深淵なるデータを記録してください..."
                     value={newNoteText}
                     onChange={(e) => setNewNoteText(e.target.value)}
@@ -1867,6 +1887,7 @@ export default function App() {
                       if (el) el.scrollTop = (e.target as HTMLTextAreaElement).scrollTop;
                     }}
                     style={{ letterSpacing: '0.01em' }}
+                    disabled={isAiEditing}
                   />
                 </div>
               )}

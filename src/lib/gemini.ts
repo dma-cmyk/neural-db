@@ -193,21 +193,27 @@ export const editNoteWithAI = async (
   text: string,
   instruction: string,
   apiKeyToUse: string,
-  modelId: string = 'gemini-2.0-flash-lite'
+  modelId: string = 'gemini-2.0-flash-lite',
+  title?: string
 ): Promise<string> => {
   return withRetry(async () => {
+    const context = title ? `タイトル: ${title}\n内容:\n${text}` : text;
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKeyToUse}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{
-          parts: [{ text: `あなたは高度なテキストエディタAIです。
-以下の「対象テキスト」を、ユーザーの「指示」に従って編集してください。
-出力は編集後のテキストのみを返し、解説や挨拶などは一切含めないでください。
-マークダウン形式は維持、または指示があれば適切に適用してください。
+          parts: [{ text: `あなたは高度なインテリジェント・ノートアシスタントです。
+以下の「対象テキスト」の内容と文脈を正確に理解し、ユーザーの「指示」を遂行してください。
+指示は、既存テキストの編集、続きの執筆、コードの改善、プロンプトの強化など多岐にわたります。
+
+【出力ルール】
+- 出力は結果のテキストのみを返し、解説や挨拶などは一切含めないでください。
+- 既存の構造やマークダウン形式を尊重し、指示に応じて適切に適用・拡張してください。
+- 続きを書く指示の場合は、既存の文体やトーンを維持してください。
 
 対象テキスト:
-${text}
+${context}
 
 ユーザーの指示:
 ${instruction}` }]
@@ -218,7 +224,7 @@ ${instruction}` }]
     if (!response.ok) throw new Error(`API Error: ${response.status}`);
     const data = await response.json();
     if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-      throw new Error('編集に失敗しました');
+      throw new Error('処理に失敗しました');
     }
     return data.candidates[0].content.parts[0].text.trim();
   });
