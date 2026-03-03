@@ -52,6 +52,12 @@ interface UserProfile {
   lastActive: string;
 }
 
+interface SavedAiInstruction {
+  id: string;
+  name: string;
+  instruction: string;
+}
+
 const INITIAL_MODELS: GeminiModel[] = [
   { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash Preview', description: '次世代高速モデル' },
   { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro Preview', description: '次世代最上位モデル', isPaid: true },
@@ -115,6 +121,11 @@ export default function App() {
   const [isLocked, setIsLocked] = useState<boolean>(true);
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [editingProfileName, setEditingProfileName] = useState('');
+  
+  // AI指示の保存状態
+  const [savedAiInstructions, setSavedAiInstructions] = useState<SavedAiInstruction[]>([]);
+  const [isSavedInstructionsOpen, setIsSavedInstructionsOpen] = useState(false);
+  const [newInstructionName, setNewInstructionName] = useState('');
   
   const inputRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -200,6 +211,15 @@ export default function App() {
               setApiKeys([]);
               setSelectedApiKeyId(null);
             }
+
+            // 保存済みAI指示のロード
+            const aiInstructionsKey = `neural_db_ai_instructions_${vaultId}`;
+            const savedInstructions = localStorage.getItem(aiInstructionsKey);
+            if (savedInstructions) {
+              setSavedAiInstructions(JSON.parse(savedInstructions));
+            } else {
+              setSavedAiInstructions([]);
+            }
           })
           .catch(err => {
             console.error('復号に失敗しました:', err);
@@ -223,7 +243,10 @@ export default function App() {
     if (isLocked || !vaultId) return; // ロック中またはVault未指定時は保存しない
     const apiKeysKey = `neural_db_api_keys_${vaultId}`;
     localStorage.setItem(apiKeysKey, JSON.stringify(apiKeys));
-  }, [apiKeys, vaultId, isLocked]);
+
+    const aiInstructionsKey = `neural_db_ai_instructions_${vaultId}`;
+    localStorage.setItem(aiInstructionsKey, JSON.stringify(savedAiInstructions));
+  }, [apiKeys, savedAiInstructions, vaultId, isLocked]);
 
   useEffect(() => {
     if (isLocked) return; // ロック中は上書き保存しない
@@ -301,6 +324,29 @@ export default function App() {
     setApiKeys(prev => prev.map(ak => ak.id === id ? { ...ak, name: editingApiKeyName.trim() } : ak));
     setEditingApiKeyId(null);
     setEditingApiKeyName('');
+  };
+
+  const handleSaveAiInstruction = () => {
+    if (!aiInstruction.trim()) return;
+    const name = newInstructionName.trim() || aiInstruction.trim().slice(0, 15) + (aiInstruction.length > 15 ? '...' : '');
+    const newSaved: SavedAiInstruction = {
+      id: crypto.randomUUID(),
+      name,
+      instruction: aiInstruction.trim()
+    };
+    setSavedAiInstructions(prev => [newSaved, ...prev]);
+    setNewInstructionName('');
+    setIsSavedInstructionsOpen(false);
+  };
+
+  const handleDeleteAiInstruction = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSavedAiInstructions(prev => prev.filter(i => i.id !== id));
+  };
+
+  const handleSelectAiInstruction = (instruction: string) => {
+    setAiInstruction(instruction);
+    setIsSavedInstructionsOpen(false);
   };
 
   const handleToggleTag = (tag: string) => {
@@ -1435,18 +1481,67 @@ export default function App() {
               <div className="bg-zinc-950 border-t border-cyan-900/50 p-4">
                 <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
                   <div className="relative flex-1 w-full group">
-                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    <div className="absolute top-3 left-3 flex items-start pointer-events-none">
                       <BrainCircuit className={`w-4 h-4 ${isAiEditing ? 'text-fuchsia-500 animate-pulse' : 'text-cyan-700'}`} />
                     </div>
-                    <input 
-                      type="text"
-                      placeholder={isAiEditing ? "AI 🧠 接続中..." : "AIへの指示..."}
-                      className="w-full bg-black border border-cyan-900/50 focus:border-fuchsia-500 p-2 pl-10 text-xs text-cyan-100 outline-none transition-all"
+                    <textarea 
+                      placeholder={isAiEditing ? "AI 🧠 接続中..." : "AIへの指示 (Shift+Enterで改行)..."}
+                      className="w-full bg-black border border-cyan-900/50 focus:border-fuchsia-500 p-2 pl-10 text-xs text-cyan-100 outline-none transition-all resize-none min-h-[40px] max-h-[120px]"
+                      rows={1}
                       value={aiInstruction}
-                      onChange={(e) => setAiInstruction(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAiEdit(aiInstruction)}
+                      onChange={(e) => {
+                        setAiInstruction(e.target.value);
+                        e.target.style.height = 'auto';
+                        e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleAiEdit(aiInstruction);
+                        }
+                      }}
                       disabled={isAiEditing}
                     />
+                    
+                    {/* 保存済み指示のポップアップ */}
+                    <div className="absolute right-2 top-2 flex items-center gap-1">
+                      <button
+                        onClick={() => setIsSavedInstructionsOpen(!isSavedInstructionsOpen)}
+                        className="p-1.5 text-cyan-700 hover:text-cyan-300 hover:bg-cyan-900/30 transition-all rounded-sm"
+                        title="保存済み指示"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isSavedInstructionsOpen ? 'rotate-180 text-fuchsia-500' : ''} transition-transform`} />
+                      </button>
+                      <button
+                        onClick={handleSaveAiInstruction}
+                        disabled={!aiInstruction.trim()}
+                        className="p-1.5 text-cyan-700 hover:text-fuchsia-500 hover:bg-fuchsia-500/10 transition-all rounded-sm disabled:opacity-20"
+                        title="指示を保存"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {isSavedInstructionsOpen && savedAiInstructions.length > 0 && (
+                      <div className="absolute bottom-full right-0 mb-2 w-64 bg-black border border-cyan-900/50 shadow-[0_0_30px_rgba(0,0,0,0.8)] z-50 max-h-48 overflow-y-auto">
+                        <div className="p-2 border-b border-cyan-900/30 text-[10px] text-cyan-800 font-bold tracking-tighter uppercase">Saved Protocols</div>
+                        {savedAiInstructions.map((item) => (
+                          <div 
+                            key={item.id}
+                            onClick={() => handleSelectAiInstruction(item.instruction)}
+                            className="flex items-center justify-between p-2 hover:bg-cyan-900/20 cursor-pointer group/item border-b border-cyan-900/10 last:border-0"
+                          >
+                            <span className="text-[10px] text-cyan-300 truncate pr-2">{item.name}</span>
+                            <button 
+                              onClick={(e) => handleDeleteAiInstruction(item.id, e)}
+                              className="opacity-0 group-hover/item:opacity-100 p-1 text-zinc-600 hover:text-red-500 transition-all"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-3 w-full md:w-auto">
@@ -1837,25 +1932,80 @@ export default function App() {
             
             <div className="flex-1 w-full max-w-3xl px-4">
               <div className="relative group">
-                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                <div className="absolute top-4 left-4 flex items-start pointer-events-none">
                   <BrainCircuit className={`w-5 h-5 ${isAiEditing ? 'text-fuchsia-500 animate-pulse' : 'text-cyan-800 group-focus-within:text-fuchsia-600 transition-colors'}`} />
                 </div>
-                <input 
-                  type="text"
+                <textarea 
                   placeholder={isAiEditing ? "AI CORE EXECUTION..." : "AIプロトコルへの命令 (例: 要約、構造化、翻訳...)"}
-                  className="w-full bg-black/60 border border-cyan-900/50 focus:border-fuchsia-600/60 p-3.5 pl-12 text-sm text-cyan-100 placeholder-cyan-950 outline-none transition-all rounded-sm"
+                  className="w-full bg-black/60 border border-cyan-900/50 focus:border-fuchsia-600/60 p-3.5 pl-12 pr-32 text-sm text-cyan-100 placeholder-cyan-950 outline-none transition-all rounded-sm resize-none min-h-[52px] max-h-[200px]"
+                  rows={1}
                   value={aiInstruction}
-                  onChange={(e) => setAiInstruction(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAiEdit(aiInstruction)}
+                  onChange={(e) => {
+                    setAiInstruction(e.target.value);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAiEdit(aiInstruction);
+                    }
+                  }}
                   disabled={isAiEditing}
                 />
-                <button 
-                  onClick={() => handleAiEdit(aiInstruction)}
-                  disabled={isAiEditing || !aiInstruction.trim()}
-                  className="absolute right-1.5 top-1.5 bottom-1.5 px-6 bg-fuchsia-600/10 text-fuchsia-500 hover:bg-fuchsia-600 hover:text-white transition-all text-xs font-bold uppercase tracking-widest disabled:opacity-20 rounded-sm"
-                >
-                  Apply
-                </button>
+                <div className="absolute right-1.5 top-1.5 bottom-1.5 flex items-center gap-1">
+                  <button 
+                    onClick={() => setIsSavedInstructionsOpen(!isSavedInstructionsOpen)}
+                    className="p-2 text-cyan-700 hover:text-fuchsia-500 bg-fuchsia-600/5 hover:bg-fuchsia-600/10 transition-all rounded-sm border border-transparent hover:border-fuchsia-500/30"
+                    title="保存済みプロトコル"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isSavedInstructionsOpen ? 'rotate-180 text-fuchsia-500' : ''} transition-transform`} />
+                  </button>
+                  <button 
+                    onClick={handleSaveAiInstruction}
+                    disabled={!aiInstruction.trim()}
+                    className="p-2 text-cyan-700 hover:text-fuchsia-500 bg-fuchsia-600/5 hover:bg-fuchsia-600/10 transition-all rounded-sm border border-transparent hover:border-fuchsia-500/30 disabled:opacity-20"
+                    title="プロトコルを保存"
+                  >
+                    <Save className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => handleAiEdit(aiInstruction)}
+                    disabled={isAiEditing || !aiInstruction.trim()}
+                    className="px-6 py-2.5 bg-fuchsia-600/10 text-fuchsia-500 hover:bg-fuchsia-600 hover:text-white transition-all text-xs font-bold uppercase tracking-widest disabled:opacity-20 rounded-sm border border-fuchsia-600/30"
+                  >
+                    Apply
+                  </button>
+                </div>
+
+                {isSavedInstructionsOpen && savedAiInstructions.length > 0 && (
+                  <div className="absolute bottom-full left-0 right-0 mb-3 bg-black/90 backdrop-blur-xl border border-fuchsia-500/30 shadow-[0_0_50px_rgba(217,70,239,0.15)] z-50 max-h-64 overflow-y-auto rounded-sm scrollbar-thin scrollbar-thumb-fuchsia-500/20">
+                    <div className="p-3 border-b border-fuchsia-500/20 text-xs text-fuchsia-400 font-bold tracking-[0.2em] uppercase bg-fuchsia-500/5 flex justify-between items-center">
+                      <span>Stored Protocols</span>
+                      <span className="text-[10px] text-fuchsia-700 normal-case tracking-normal">{savedAiInstructions.length} items logged</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-fuchsia-500/10">
+                      {savedAiInstructions.map((item) => (
+                        <div 
+                          key={item.id}
+                          onClick={() => handleSelectAiInstruction(item.instruction)}
+                          className="flex items-center justify-between p-4 bg-black hover:bg-fuchsia-500/10 cursor-pointer group/item transition-all"
+                        >
+                          <div className="flex flex-col gap-1 overflow-hidden">
+                            <span className="text-xs text-cyan-100 font-bold truncate">{item.name}</span>
+                            <span className="text-[10px] text-cyan-800 truncate">{item.instruction.replace(/\n/g, ' ')}</span>
+                          </div>
+                          <button 
+                            onClick={(e) => handleDeleteAiInstruction(item.id, e)}
+                            className="opacity-0 group-hover/item:opacity-100 p-2 text-cyan-900 hover:text-red-500 transition-all ml-4"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
