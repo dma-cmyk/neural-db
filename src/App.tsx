@@ -1719,7 +1719,7 @@ export default function App() {
           <div className="flex-1 flex flex-col w-full px-6 md:px-20 lg:px-32 py-10 overflow-hidden">
             <input
               type="text"
-              className="w-full bg-transparent border-none outline-none text-4xl md:text-7xl font-bold tracking-tighter text-cyan-50 placeholder-cyan-950 mb-12 py-4 border-b border-transparent focus:border-cyan-900/20 transition-all"
+              className="w-full bg-transparent border-none outline-none text-2xl md:text-4xl font-bold tracking-tight text-cyan-50 placeholder-cyan-950 mb-8 py-2 border-b border-cyan-900/10 focus:border-cyan-900/30 transition-all"
               placeholder="思考のタイトル..."
               value={newNoteTitle}
               onChange={(e) => setNewNoteTitle(e.target.value)}
@@ -1753,7 +1753,7 @@ export default function App() {
               {editorMode === 'write' && (
                 <div className="flex-1 flex gap-0 overflow-hidden">
                   <div 
-                    className="w-16 flex-shrink-0 flex flex-col items-end pr-5 pt-2 text-cyan-900/60 font-mono text-xl leading-loose select-none overflow-hidden bg-white/[0.02]"
+                    className="w-12 flex-shrink-0 flex flex-col items-end pr-4 pt-1.5 text-cyan-900/50 font-mono text-base leading-relaxed select-none overflow-hidden bg-white/[0.01]"
                     id="focus-line-numbers"
                   >
                     {newNoteText.split('\n').map((_, i) => (
@@ -1762,7 +1762,7 @@ export default function App() {
                   </div>
                   <textarea
                     autoFocus
-                    className="flex-1 h-full bg-transparent resize-none outline-none text-xl md:text-2xl leading-loose text-cyan-50/90 placeholder-zinc-900 font-mono custom-scrollbar pl-8 border-l border-cyan-900/20"
+                    className="flex-1 h-full bg-transparent resize-none outline-none text-base md:text-lg leading-relaxed text-cyan-50/80 placeholder-zinc-900 font-mono custom-scrollbar pl-6 border-l border-cyan-900/20"
                     placeholder="ここに深淵なるデータを記録してください..."
                     value={newNoteText}
                     onChange={(e) => setNewNoteText(e.target.value)}
@@ -1771,7 +1771,7 @@ export default function App() {
                       const el = document.getElementById('focus-line-numbers');
                       if (el) el.scrollTop = (e.target as HTMLTextAreaElement).scrollTop;
                     }}
-                    style={{ letterSpacing: '0.025em' }}
+                    style={{ letterSpacing: '0.01em' }}
                   />
                 </div>
               )}
